@@ -1,0 +1,12 @@
+[workspace]
+resolver = "3"
+
+members = [
+    "common",
+    "broker"
+]
+
+# target diferente
+exclude = [
+    "embed"
+]

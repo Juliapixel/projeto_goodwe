@@ -1,0 +1,29 @@
+[target.xtensa-esp32-none-elf]
+runner = "espflash flash --monitor --chip esp32 --log-format defmt"
+
+[target.riscv32imc-unknown-none-elf]
+runner = "espflash flash --monitor --chip esp32c3 --log-format defmt"
+
+[env]
+DEFMT_LOG="debug"
+ESP_WIFI_CONFIG_RX_QUEUE_SIZE="24"
+ESP_WIFI_CONFIG_TX_QUEUE_SIZE="3"
+# ESP_WIFI_CONFIG_DUMP_PACKETS="true"
+
+[build]
+rustflags = [
+  # "-C", "link-arg=-nostartfiles",
+  "-Cforce-frame-pointers",
+  # "-Zunstable-options",
+  # "-Ctarget-feature=+forced-atomics",
+  # "--cfg", "target_has_atomic_load_store",
+  # "--cfg", 'target_has_atomic_load_store="8"',
+  # "--cfg", 'target_has_atomic_load_store="16"',
+  # "--cfg", 'target_has_atomic_load_store="32"',
+  # "--cfg", 'target_has_atomic_load_store="ptr"'
+]
+
+target = "riscv32imc-unknown-none-elf"
+
+[unstable]
+build-std = ["alloc", "core"]

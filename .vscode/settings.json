@@ -1,0 +1,6 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "${workspaceFolder}/tomada/embed/Cargo.toml",
+        "${workspaceFolder}/tomada/Cargo.toml"
+    ]
+}
