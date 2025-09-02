@@ -4,3 +4,7 @@ _default:
 clean:
     cargo clean
     cd embed && cargo clean
+
+fmt:
+    cargo fmt
+    cd embed && cargo fmt
