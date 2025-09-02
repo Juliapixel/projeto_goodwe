@@ -1,13 +1,21 @@
 use core::{net::Ipv4Addr, pin::pin, str::FromStr};
 
 use alloc::string::String;
-use defmt::{error, info, warn};
+use common::{MessageGenerator, MessagePayload, PlugMessage};
+use defmt::{debug, error, info, warn};
 use dotenvy_macro::dotenv;
-use embassy_net::{udp::PacketMetadata, Config, DhcpConfig, IpListenEndpoint, Runner, Stack, StackResources};
-use embassy_sync::{blocking_mutex::raw::{NoopRawMutex, RawMutex}, mutex::Mutex, signal::Signal};
-use embassy_time::{Duration, Timer, WithTimeout};
+use embassy_futures::select::{Either, select, select3};
+use embassy_net::{
+    Config, DhcpConfig, IpListenEndpoint, Runner, Stack, StackResources, udp::PacketMetadata,
+};
+use embassy_sync::{
+    blocking_mutex::raw::{NoopRawMutex, RawMutex},
+    mutex::Mutex,
+    signal::Signal,
+};
+use embassy_time::{Duration, Instant, Timer, WithTimeout};
 use esp_wifi::wifi::{ClientConfiguration, WifiController, WifiDevice, WifiError, WifiEvent};
-use futures::future::{join, select};
+use futures::future::join;
 
 use crate::status_led::LedStatusCode;
 
@@ -22,7 +30,7 @@ pub struct WifiHandler<'a> {
 pub enum WifiCommand {
     SetWifi {
         ssid: String,
-        password: Option<String>
+        password: Option<String>,
     },
     Reconnect,
     Disconnect,
@@ -36,17 +44,20 @@ impl<'a> WifiHandler<'a> {
         controller: WifiController<'a>,
         device: WifiDevice<'a>,
         stack_resources: &'a mut StackResources<5>,
-        seed: u64
+        seed: u64,
     ) -> Self {
-
         let (stack, runner) = embassy_net::new(
             device,
             Config::dhcpv4(DhcpConfig::default()),
             stack_resources,
-            seed
+            seed,
         );
 
-        Self { controller: Mutex::new(controller), stack, runner: Mutex::new(runner) }
+        Self {
+            controller: Mutex::new(controller),
+            stack,
+            runner: Mutex::new(runner),
+        }
     }
 
     pub async fn disconnect(&self) -> Result<(), WifiError> {
@@ -102,6 +113,7 @@ impl<'a> WifiHandler<'a> {
         info!("Connecting");
         controller.connect_async().await?;
 
+        debug!("Waiting for connection up");
         loop {
             if controller.is_connected()? {
                 return Ok(());
@@ -111,82 +123,217 @@ impl<'a> WifiHandler<'a> {
 
     async fn reconnect(&self) -> Result<(), WifiError> {
         self.disconnect().await?;
-        self.controller.lock().await.connect_async().await
+        let mut controller = self.controller.lock().await;
+        controller.connect_async().await?;
+
+        debug!("Waiting for connection up");
+        loop {
+            if controller.is_connected()? {
+                return Ok(());
+            }
+        }
     }
 
     pub async fn run(&self, led_signal: &Signal<impl RawMutex, LedStatusCode>) {
         join(
             pin!(self.runner.lock().await.run()),
-            pin!(async { loop {
-                led_signal.signal(LedStatusCode::Connecting);
-                info!("Turning on link");
-                self.stack.wait_link_up().await;
-                info!("Link up");
+            pin!(async {
+                loop {
+                    led_signal.signal(LedStatusCode::Connecting);
+                    info!("Turning on link");
+                    self.stack.wait_link_up().await;
+                    info!("Link up");
 
-                info!("Configuring link");
-                self.stack.wait_config_up().await;
-                info!("Link configured");
+                    info!("Configuring link");
+                    self.stack.wait_config_up().await;
+                    info!("Link configured");
 
-                match self.stack.config_v4() {
-                    Some(c) => {
-                        info!("got ip from dhcp: {}", c.address);
+                    match self.stack.config_v4() {
+                        Some(c) => {
+                            info!("got ip from dhcp: {}", c.address);
+                        }
+                        None => {
+                            error!("no ip saj");
+                        }
                     }
-                    None => {
-                        error!("no ip saj");
+                    led_signal.signal(LedStatusCode::Working);
+
+                    select3(
+                        broker_task(self.stack),
+                        self.stack.wait_link_down(),
+                        self.controller
+                            .lock()
+                            .await
+                            .wait_for_events([WifiEvent::StaDisconnected].into(), false),
+                    )
+                    .await;
+                    warn!("Wi-fi connection down. Restarting...");
+                    led_signal.signal(LedStatusCode::Disconnected);
+                    while let Err(e) = self.reconnect().await {
+                        error!("Failed to reconnect: {}", e);
                     }
                 }
-                led_signal.signal(LedStatusCode::Working);
-
-                broker_task(self.stack).await;
-
-                select(
-                    pin!(self.stack.wait_link_down()),
-                    pin!(self.controller.lock().await.wait_for_events([WifiEvent::StaDisconnected, WifiEvent::StaBeaconTimeout].into(), false))
-                ).await;
-                warn!("Wi-fi connection down. Restarting...");
-                led_signal.signal(LedStatusCode::Disconnected);
-                self.reconnect().await;
-            }})
-        ).await;
+            }),
+        )
+        .await;
     }
 }
 
-async fn broker_task(stack: Stack<'_>) {
+#[derive(Clone, Copy, defmt::Format)]
+enum BrokerConnState {
+    Working,
+    PreConnect,
+    Connecting,
+    Disconnected,
+    Pinging([u8; 8]),
+}
+
+const SEND_TIMEOUT: Duration = Duration::from_secs(5);
+
+async fn broker_task(stack: Stack<'_>) -> ! {
+    let mut state = BrokerConnState::Disconnected;
+
+    macro_rules! send_error {
+        ($send: expr) => {
+            match $send {
+                Ok(Ok(())) => debug!("Sent successfully"),
+                Ok(Err(e)) => {
+                    error!("Failed to send UDP socket info: {}", e);
+                    state = BrokerConnState::Disconnected;
+                }
+                Err(_) => {
+                    error!("UDP socket timed out");
+                    state = BrokerConnState::Disconnected;
+                }
+            };
+        };
+        ($send: expr, $state: expr) => {
+            match $send {
+                Ok(Ok(())) => {
+                    debug!("Sent successfully");
+                    state = $state;
+                }
+                Ok(Err(e)) => {
+                    error!("Failed to send UDP socket info: {}", e);
+                    state = BrokerConnState::Disconnected;
+                }
+                Err(_) => {
+                    error!("UDP socket timed out");
+                    state = BrokerConnState::Disconnected;
+                }
+            };
+        };
+    }
+
     let mut tx_meta = [PacketMetadata::EMPTY; 4];
     let mut tx_buf = [0u8; 1024];
     let mut rx_meta = [PacketMetadata::EMPTY; 4];
     let mut rx_buf = [0u8; 1024];
 
-    let mut sock = embassy_net::udp::UdpSocket::new(stack, &mut rx_meta, &mut rx_buf, &mut tx_meta, &mut tx_buf);
-    let mut ping = [0u8;256];
-    let ping = postcard::to_slice(&common::PlugMessage::Ping { data: &[1,2,3,4,5,6] }, &mut ping).unwrap();
+    let mut sock = embassy_net::udp::UdpSocket::new(
+        stack,
+        &mut rx_meta,
+        &mut rx_buf,
+        &mut tx_meta,
+        &mut tx_buf,
+    );
+    let mut msg_buf = [0u8; 256];
 
     sock.bind(IpListenEndpoint {
         addr: None,
-        port: 4242
-    }).unwrap();
+        port: 4242,
+    })
+    .unwrap();
+
+    let broker_addr = (
+        Ipv4Addr::from_str(BROKER_IP).unwrap(),
+        BROKER_PORT.parse::<u16>().unwrap(),
+    );
+
+    // TODO: random initial ID
+    let mut generator = MessageGenerator::new(0);
+
+    let mut send = async |msg: MessagePayload| {
+        debug!("Sending {}", &msg);
+        let msg = postcard::to_slice(&generator.new_message(msg), &mut msg_buf).unwrap();
+        sock.send_to(msg, broker_addr)
+            .with_timeout(SEND_TIMEOUT)
+            .await
+    };
 
     loop {
-        let send = sock.send_to(
-            ping,
-            (Ipv4Addr::from_str(BROKER_IP).unwrap(), BROKER_PORT.parse().unwrap())
-        ).with_timeout(Duration::from_secs(5)).await;
-
-        match send {
-            Ok(Ok(_)) => (),
-            Ok(Err(e)) => {error!("Failed to send UDP socket info: {}", e); continue;},
-            Err(_) => {error!("UDP socket timed out"); continue;}
-        };
+        let ping_timeout = Timer::at(Instant::now().checked_add(Duration::from_secs(30)).unwrap());
 
         info!("receiving");
-        sock.recv_from_with(|d, _m| {
-            info!(
-                "{}",
-                postcard::from_bytes::<common::PlugMessage>(d)
-            );
-        }).with_timeout(Duration::from_secs(5)).await;
+
+        let mut buf = [0u8; 512];
+
+        let r = select(ping_timeout, sock.recv_from(&mut buf)).await;
+
+        match r {
+            Either::First(_timeout) => {
+                debug!("Sending ping");
+                send_error!(
+                    send(common::MessagePayload::Ping {
+                        data: &[1, 2, 3, 4, 5, 6, 7, 8]
+                    })
+                    .await,
+                    BrokerConnState::Pinging([1, 2, 3, 4, 5, 6, 7, 8])
+                );
+            }
+            Either::Second(Ok(d)) => {
+                let data = &buf[..d.0];
+                let Ok(m) = postcard::from_bytes::<PlugMessage>(data) else {
+                    warn!("Malformed postcard message");
+                    continue;
+                };
+                info!("Received message: {}", m);
+                match (m.payload, state) {
+                    (MessagePayload::Ping { data }, _) => {
+                        send_error!(send(MessagePayload::Pong { data }).await);
+                    }
+                    (MessagePayload::Pong { data }, BrokerConnState::Pinging(d)) => {
+                        if d == data {
+                            state = BrokerConnState::Working;
+                        } else {
+                            warn!("Pong data doesnt match!");
+                        }
+                    }
+                    (MessagePayload::Pong { data: _ }, _) => {
+                        warn!("Received pong while not waiting for it");
+                    }
+                    (MessagePayload::TurnOff, _) => {
+                        // TODO: implement turning on/off
+                        send_error!(send(MessagePayload::TurnOffAck).await);
+                    }
+                    (MessagePayload::TurnOn, _) => {
+                        // TODO: implement turning on/off
+                        send_error!(send(MessagePayload::TurnOnAck).await);
+                    }
+                    (MessagePayload::QueryStatus, _) => {
+                        // TODO: implement status reading
+                        send_error!(send(MessagePayload::StatusResp { is_on: true }).await);
+                    }
+                    (MessagePayload::ConnAck, BrokerConnState::Connecting) => {
+                        state = BrokerConnState::Working
+                    }
+                    (MessagePayload::ConnAck, s) => {
+                        warn!("Received ConnAck during innapropriate stage: {}", s);
+                    }
+                    (MessagePayload::TurnOffAck, _)
+                    | (MessagePayload::TurnOnAck, _)
+                    | (MessagePayload::Conn, _)
+                    | (MessagePayload::StatusResp { is_on: _ }, _) => {
+                        debug!("Received message meant for broker")
+                    }
+                }
+            }
+            Either::Second(Err(_)) => {
+                error!("Message truncated, buffer too short!");
+                state = BrokerConnState::Disconnected
+            }
+        }
 
         Timer::after_secs(5).await;
     }
-
 }

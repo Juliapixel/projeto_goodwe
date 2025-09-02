@@ -7,20 +7,17 @@
 )]
 
 use bt_hci::controller::ExternalController;
-use defmt::{info, write, Format};
+use defmt::{Format, info, write};
 use embassy_executor::Spawner;
 use embassy_net::StackResources;
-use esp_hal::timer::timg::TimerGroup;
 use esp_hal::clock::CpuClock;
+use esp_hal::timer::timg::TimerGroup;
 use esp_wifi::EspWifiController;
 use esp_wifi::ble::controller::BleConnector;
 use esp_wifi::wifi::WifiDevice;
 use goodwe_plug::App;
 use static_cell::StaticCell;
-use trouble_host::{
-    Address, HostResources,
-    prelude::DefaultPacketPool,
-};
+use trouble_host::{Address, HostResources, prelude::DefaultPacketPool};
 use {esp_backtrace as _, esp_println as _};
 
 extern crate alloc;
@@ -57,13 +54,13 @@ async fn main(_spawner: Spawner) {
 
     info!("Embassy initialized!");
 
-    let mut rng = esp_hal::rng::Rng::new(peripherals.RNG);
+    let mut rng = esp_hal::rng::Trng::new(peripherals.RNG, peripherals.ADC1);
     let timer1 = TimerGroup::new(peripherals.TIMG0);
 
     static WIFI_INIT: StaticCell<EspWifiController<'static>> = StaticCell::new();
 
     let wifi_init = WIFI_INIT.init(
-        esp_wifi::init(timer1.timer0, rng).expect("Failed to initialize WIFI/BLE controller"),
+        esp_wifi::init(timer1.timer0, rng.rng).expect("Failed to initialize WIFI/BLE controller"),
     );
 
     let (wifi_controller, interfaces) = esp_wifi::wifi::new(wifi_init, peripherals.WIFI)
@@ -79,12 +76,12 @@ async fn main(_spawner: Spawner) {
 
     let mut hr = HostResources::<DefaultPacketPool, 1, 2>::new();
     let ble_stack = trouble_host::new(ble_controller, &mut hr)
-        .set_random_address(Address::random(interfaces.sta.mac_address()));
+        .set_random_address(Address::random(interfaces.sta.mac_address()))
+        .set_random_generator_seed(&mut rng);
 
     let ble_host = ble_stack.build();
 
     let mut stack_resources = StackResources::new();
-
 
     let app = App::new(
         peripherals.GPIO8,
@@ -95,7 +92,7 @@ async fn main(_spawner: Spawner) {
         interfaces.sta,
         &mut stack_resources,
         ble_host,
-        rng.random() as u64 | ((rng.random() as u64) << 32)
+        rng.random() as u64 | ((rng.random() as u64) << 32),
     );
 
     app.run().await;

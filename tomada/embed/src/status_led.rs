@@ -1,14 +1,15 @@
-use core::pin::pin;
-
 use alloc::rc::Rc;
-use embassy_sync::{blocking_mutex::{raw::NoopRawMutex, NoopMutex}, signal::Signal};
+use embassy_futures::select::{Either, select};
+use embassy_sync::{
+    blocking_mutex::{NoopMutex, raw::NoopRawMutex},
+    signal::Signal,
+};
 use embassy_time::Timer;
 use esp_hal::gpio::{Level, Output, OutputConfig, OutputPin};
-use futures::future::select;
 
 pub struct StatusLed<'a> {
     led: NoopMutex<Output<'a>>,
-    signal: Rc<Signal<NoopRawMutex, LedStatusCode>>
+    signal: Rc<Signal<NoopRawMutex, LedStatusCode>>,
 }
 
 #[derive(Debug, Clone, Copy, defmt::Format)]
@@ -17,21 +18,19 @@ pub enum LedStatusCode {
     Connecting,
     Pairing,
     Working,
-    Idle
+    Idle,
 }
 
 impl<'a> StatusLed<'a> {
     pub fn new(pin: impl OutputPin + 'a) -> (Self, Rc<Signal<NoopRawMutex, LedStatusCode>>) {
         let signal = Rc::new(Signal::new());
-        (Self {
-            led: NoopMutex::new(Output::new(
-                pin,
-                Level::High,
-                OutputConfig::default()
-            )),
-            signal: signal.clone(),
-        },
-        signal)
+        (
+            Self {
+                led: NoopMutex::new(Output::new(pin, Level::High, OutputConfig::default())),
+                signal: signal.clone(),
+            },
+            signal,
+        )
     }
 
     async fn long_blink(&self) {
@@ -56,47 +55,45 @@ impl<'a> StatusLed<'a> {
     }
 
     pub async fn blink_led(&self) -> ! {
-        let get_code = async move || { self.signal.wait().await };
-        let blink = async |code: LedStatusCode| {
-            match code {
-                LedStatusCode::Disconnected => {
-                    for _ in 0..4 {
-                        self.short_blink().await;
-                    }
-                    Timer::after_millis(1000).await;
-                },
-                LedStatusCode::Connecting => {
+        let get_code = async move || self.signal.wait().await;
+        let blink = async |code: LedStatusCode| match code {
+            LedStatusCode::Disconnected => {
+                for _ in 0..4 {
                     self.short_blink().await;
-                },
-                LedStatusCode::Pairing => {
-                    self.set_onboard_led(Level::Low);
-                    Timer::after_millis(500).await;
-                    self.set_onboard_led(Level::High);
-                    Timer::after_millis(500).await;
-                },
-                LedStatusCode::Idle => {
-                    self.set_onboard_led(Level::High);
-                    core::future::pending::<()>().await;
-                },
-                LedStatusCode::Working => {
-                    self.short_blink().await;
-                    Timer::after_millis(2000).await;
                 }
+                Timer::after_millis(1000).await;
+            }
+            LedStatusCode::Connecting => {
+                self.short_blink().await;
+            }
+            LedStatusCode::Pairing => {
+                self.set_onboard_led(Level::Low);
+                Timer::after_millis(500).await;
+                self.set_onboard_led(Level::High);
+                Timer::after_millis(500).await;
+            }
+            LedStatusCode::Idle => {
+                self.set_onboard_led(Level::High);
+                core::future::pending::<()>().await;
+            }
+            LedStatusCode::Working => {
+                self.short_blink().await;
+                Timer::after_millis(2000).await;
             }
         };
 
-        let mut code =
-            self.signal.try_take().unwrap_or(LedStatusCode::Idle);
+        let mut code = self.signal.try_take().unwrap_or(LedStatusCode::Idle);
 
         loop {
-            match select(
-                pin!(get_code()),
-                pin!(async move { loop {
+            match select(get_code(), async move {
+                loop {
                     blink(code).await;
-                }})
-            ).await {
-                futures::future::Either::Left(c) => code = c.0,
-                futures::future::Either::Right(_) => unreachable!(),
+                }
+            })
+            .await
+            {
+                Either::First(c) => code = c,
+                Either::Second(_) => unreachable!(),
             };
         }
     }
