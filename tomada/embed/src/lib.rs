@@ -10,6 +10,8 @@
 use alloc::rc::Rc;
 use defmt::info;
 use dotenvy_macro::dotenv;
+#[cfg(not(feature = "ble"))]
+use embassy_futures::select::select;
 use embassy_futures::select::select3;
 use embassy_net::StackResources;
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, signal::Signal};
@@ -17,12 +19,14 @@ use embassy_time::Timer;
 use esp_hal::gpio::{Input, InputConfig, InputPin, Level, Output, OutputConfig, OutputPin, Pull};
 use esp_wifi::wifi::{WifiController, WifiDevice};
 
+#[cfg(feature = "ble")]
+use crate::ble::{BleHandler, BleHost};
 use crate::{
-    ble::{BleHandler, BleHost},
     status_led::{LedStatusCode, StatusLed},
     wifi::WifiHandler,
 };
 
+#[cfg(feature = "ble")]
 mod ble;
 mod status_led;
 mod wifi;
@@ -36,6 +40,7 @@ pub struct App<'a> {
     relay: Output<'a>,
     button: Input<'a>,
     wifi: WifiHandler<'a>,
+    #[cfg(feature = "ble")]
     ble: BleHandler<'a>,
 }
 
@@ -51,7 +56,7 @@ impl<'a> App<'a> {
         controller: WifiController<'static>,
         mut device: WifiDevice<'static>,
         stack_resources: &'a mut StackResources<5>,
-        ble_host: BleHost<'a>,
+        #[cfg(feature = "ble")] ble_host: BleHost<'a>,
         seed: u64,
     ) -> Self {
         let plug_led = Output::new(plug_led_pin, Level::Low, OutputConfig::default());
@@ -67,6 +72,7 @@ impl<'a> App<'a> {
             relay,
             button,
             wifi: WifiHandler::new(controller, device, stack_resources, seed),
+            #[cfg(feature = "ble")]
             ble: BleHandler::new(ble_host),
         }
     }
@@ -80,9 +86,16 @@ impl<'a> App<'a> {
 
         self.status_led_signal.signal(LedStatusCode::Connecting);
 
+        #[cfg(feature = "ble")]
         select3(
             self.wifi.run(&self.status_led_signal),
             self.ble.run(),
+            self.status_led.blink_led(),
+        )
+        .await;
+        #[cfg(not(feature = "ble"))]
+        select(
+            self.wifi.run(&self.status_led_signal),
             self.status_led.blink_led(),
         )
         .await;
