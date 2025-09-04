@@ -64,7 +64,7 @@ impl<'b> BleHandler<'b> {
                     .unwrap();
                 let adv_data_len = AdStructure::encode_slice(
                     &[
-                        AdStructure::ServiceUuids128(&[*uuid.as_bytes()]),
+                        // AdStructure::ServiceUuids128(&[*uuid.as_bytes()]),
                         AdStructure::CompleteLocalName(b"Tomada Goodwe"),
                         AdStructure::Flags(LE_GENERAL_DISCOVERABLE | BR_EDR_NOT_SUPPORTED),
                     ],
@@ -78,8 +78,6 @@ impl<'b> BleHandler<'b> {
 
         ADV_DATA.get()
     }
-
-    fn setup(&self) {}
 
     pub async fn run(&mut self) {
         let server = Server::new_with_config(GapConfig::Peripheral(PeripheralConfig {

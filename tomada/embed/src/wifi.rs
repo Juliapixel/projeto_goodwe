@@ -1,4 +1,4 @@
-use core::{net::Ipv4Addr, pin::pin, str::FromStr};
+use core::{net::Ipv4Addr, str::FromStr};
 
 use alloc::string::String;
 use common::{MessageGenerator, MessagePayload, PlugMessage};
@@ -8,16 +8,14 @@ use embassy_futures::select::{Either, select, select3};
 use embassy_net::{
     Config, DhcpConfig, IpListenEndpoint, Runner, Stack, StackResources, udp::PacketMetadata,
 };
-use embassy_sync::{
-    blocking_mutex::raw::{NoopRawMutex, RawMutex},
-    mutex::Mutex,
-    signal::Signal,
-};
+use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 use embassy_time::{Duration, Instant, Timer, WithTimeout};
-use esp_wifi::wifi::{ClientConfiguration, WifiController, WifiDevice, WifiError, WifiEvent};
-use futures::future::join;
+use esp_wifi::wifi::{
+    ClientConfiguration, ScanConfig, WifiController, WifiDevice, WifiError, WifiEvent,
+};
+use futures::{FutureExt, future::join};
 
-use crate::status_led::LedStatusCode;
+use crate::status_led::{LED_STATUS, LedStatusCode};
 
 extern crate alloc;
 
@@ -27,17 +25,11 @@ pub struct WifiHandler<'a> {
     runner: Mutex<NoopRawMutex, Runner<'a, WifiDevice<'a>>>,
 }
 
-pub enum WifiCommand {
-    SetWifi {
-        ssid: String,
-        password: Option<String>,
-    },
-    Reconnect,
-    Disconnect,
-}
-
 const BROKER_IP: &str = dotenv!("BROKER_IP");
 const BROKER_PORT: &str = dotenv!("BROKER_PORT");
+
+const SSID: &str = dotenv!("SSID");
+const PASSWORD: &str = dotenv!("PASSWORD");
 
 impl<'a> WifiHandler<'a> {
     pub fn new(
@@ -60,17 +52,6 @@ impl<'a> WifiHandler<'a> {
         }
     }
 
-    pub async fn disconnect(&self) -> Result<(), WifiError> {
-        let mut ctrl = self.controller.lock().await;
-        if ctrl.is_connected()? {
-            ctrl.disconnect_async().await?;
-        }
-        if ctrl.is_started()? {
-            ctrl.stop_async().await?;
-        }
-        Ok(())
-    }
-
     pub async fn connect(
         &self,
         ssid: impl Into<String>,
@@ -81,7 +62,7 @@ impl<'a> WifiHandler<'a> {
         controller.set_mode(esp_wifi::wifi::WifiMode::Sta)?;
         controller.set_power_saving(esp_wifi::config::PowerSaveMode::None)?;
 
-        if controller.is_connected()? {
+        if controller.is_connected().is_ok_and(|i| i) {
             controller.disconnect_async().await?;
         }
 
@@ -94,12 +75,14 @@ impl<'a> WifiHandler<'a> {
 
         controller.is_started()?;
 
-        if cfg!(debug_assertions) {
-            for ap in controller.scan_n_async(10).await? {
-                defmt::debug!("Found AP: {}", &*ap.ssid);
-                defmt::debug!("Auth method: {}", ap.auth_method);
-                defmt::debug!("Signal strength: {}dBm", ap.signal_strength);
-            }
+        for ap in controller
+            .scan_with_config_async(ScanConfig {
+                channel: None,
+                ..Default::default()
+            })
+            .await?
+        {
+            defmt::debug!("Found AP ({}dBm): {}", ap.signal_strength, &*ap.ssid);
         }
 
         controller.set_configuration(&esp_wifi::wifi::Configuration::Client(
@@ -121,61 +104,61 @@ impl<'a> WifiHandler<'a> {
         }
     }
 
-    async fn reconnect(&self) -> Result<(), WifiError> {
-        self.disconnect().await?;
-        let mut controller = self.controller.lock().await;
-        controller.connect_async().await?;
-
-        debug!("Waiting for connection up");
+    pub async fn run(&self) {
+        LED_STATUS.signal(LedStatusCode::Connecting);
         loop {
-            if controller.is_connected()? {
-                return Ok(());
+            let mut delay = 1000;
+            while let Err(e) = self.connect(SSID, Some(PASSWORD)).await {
+                defmt::error!("Wifi connection failed, retrying in {}ms: {}", delay, e);
+                Timer::after_millis(delay).await;
+                delay = core::cmp::min(delay * 2, 10000);
             }
-        }
-    }
+            info!("Wifi connected");
 
-    pub async fn run(&self, led_signal: &Signal<impl RawMutex, LedStatusCode>) {
-        join(
-            pin!(self.runner.lock().await.run()),
-            pin!(async {
-                loop {
-                    led_signal.signal(LedStatusCode::Connecting);
-                    info!("Turning on link");
-                    self.stack.wait_link_up().await;
-                    info!("Link up");
+            select(self.runner.lock().await.run(), async {
+                info!("Turning on link");
+                self.stack.wait_link_up().await;
+                info!("Link up");
 
-                    info!("Configuring link");
-                    self.stack.wait_config_up().await;
-                    info!("Link configured");
+                info!("Configuring link");
+                if self
+                    .stack
+                    .wait_config_up()
+                    .with_timeout(Duration::from_secs(30))
+                    .await
+                    .is_err()
+                {
+                    warn!("DCHPv4 timed out while acquiring IP");
+                    return;
+                };
+                info!("Link configured");
 
-                    match self.stack.config_v4() {
-                        Some(c) => {
-                            info!("got ip from dhcp: {}", c.address);
-                        }
-                        None => {
-                            error!("no ip saj");
-                        }
+                match self.stack.config_v4() {
+                    Some(c) => {
+                        LED_STATUS.signal(LedStatusCode::Working);
+                        info!("got IP from DHCP: {}", c.address);
                     }
-                    led_signal.signal(LedStatusCode::Working);
-
-                    select3(
-                        broker_task(self.stack),
-                        self.stack.wait_link_down(),
-                        self.controller
-                            .lock()
-                            .await
-                            .wait_for_events([WifiEvent::StaDisconnected].into(), false),
-                    )
-                    .await;
-                    warn!("Wi-fi connection down. Restarting...");
-                    led_signal.signal(LedStatusCode::Disconnected);
-                    while let Err(e) = self.reconnect().await {
-                        error!("Failed to reconnect: {}", e);
+                    None => {
+                        LED_STATUS.signal(LedStatusCode::Disconnected);
+                        error!("DHCPv4 returned no IP address");
+                        return;
                     }
                 }
-            }),
-        )
-        .await;
+
+                select3(
+                    broker_task(self.stack),
+                    self.stack.wait_link_down(),
+                    self.controller.lock().then(async |mut c| {
+                        c.wait_for_events([WifiEvent::StaDisconnected].into(), false)
+                            .await
+                    }),
+                )
+                .await;
+                warn!("Wi-fi connection down. Restarting...");
+                LED_STATUS.signal(LedStatusCode::Disconnected);
+            })
+            .await;
+        }
     }
 }
 
@@ -191,7 +174,7 @@ enum BrokerConnState {
 const SEND_TIMEOUT: Duration = Duration::from_secs(5);
 
 async fn broker_task(stack: Stack<'_>) -> ! {
-    let mut state = BrokerConnState::Disconnected;
+    let mut state = BrokerConnState::PreConnect;
 
     macro_rules! send_error {
         ($send: expr) => {
@@ -262,6 +245,10 @@ async fn broker_task(stack: Stack<'_>) -> ! {
     };
 
     loop {
+        if !stack.is_link_up() || !stack.is_config_up() {
+            state = BrokerConnState::Disconnected;
+            join(stack.wait_link_up(), stack.wait_config_up()).await;
+        }
         let ping_timeout = Timer::at(Instant::now().checked_add(Duration::from_secs(30)).unwrap());
 
         info!("receiving");

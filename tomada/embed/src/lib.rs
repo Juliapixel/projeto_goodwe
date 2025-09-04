@@ -7,24 +7,16 @@
 #![warn(clippy::todo)]
 #![warn(clippy::unimplemented)]
 
-use alloc::rc::Rc;
-use defmt::info;
-use dotenvy_macro::dotenv;
 #[cfg(not(feature = "ble"))]
 use embassy_futures::select::select;
 use embassy_futures::select::select3;
 use embassy_net::StackResources;
-use embassy_sync::{blocking_mutex::raw::NoopRawMutex, signal::Signal};
-use embassy_time::Timer;
 use esp_hal::gpio::{Input, InputConfig, InputPin, Level, Output, OutputConfig, OutputPin, Pull};
 use esp_wifi::wifi::{WifiController, WifiDevice};
 
 #[cfg(feature = "ble")]
 use crate::ble::{BleHandler, BleHost};
-use crate::{
-    status_led::{LedStatusCode, StatusLed},
-    wifi::WifiHandler,
-};
+use crate::{status_led::StatusLed, wifi::WifiHandler};
 
 #[cfg(feature = "ble")]
 mod ble;
@@ -35,7 +27,6 @@ extern crate alloc;
 
 pub struct App<'a> {
     status_led: StatusLed<'a>,
-    status_led_signal: Rc<Signal<NoopRawMutex, LedStatusCode>>,
     plug_led: Output<'a>,
     relay: Output<'a>,
     button: Input<'a>,
@@ -44,9 +35,6 @@ pub struct App<'a> {
     ble: BleHandler<'a>,
 }
 
-const SSID: &str = dotenv!("SSID");
-const PASSWORD: &str = dotenv!("PASSWORD");
-
 impl<'a> App<'a> {
     pub fn new(
         onboard_led_pin: impl OutputPin + 'a,
@@ -54,7 +42,7 @@ impl<'a> App<'a> {
         relay_pin: impl OutputPin + 'a,
         button_pin: impl InputPin + 'a,
         controller: WifiController<'static>,
-        mut device: WifiDevice<'static>,
+        device: WifiDevice<'static>,
         stack_resources: &'a mut StackResources<5>,
         #[cfg(feature = "ble")] ble_host: BleHost<'a>,
         seed: u64,
@@ -63,11 +51,10 @@ impl<'a> App<'a> {
         let relay = Output::new(relay_pin, Level::Low, OutputConfig::default());
         let button = Input::new(button_pin, InputConfig::default().with_pull(Pull::None));
 
-        let (status_led, led_signal) = StatusLed::new(onboard_led_pin);
+        let status_led = StatusLed::new(onboard_led_pin);
 
         Self {
             status_led,
-            status_led_signal: led_signal,
             plug_led,
             relay,
             button,
@@ -78,27 +65,10 @@ impl<'a> App<'a> {
     }
 
     pub async fn run(mut self) -> ! {
-        while let Err(e) = self.wifi.connect(SSID, Some(PASSWORD)).await {
-            defmt::error!("{}", e);
-            Timer::after_millis(1000).await;
-        }
-        info!("Wifi connected");
-
-        self.status_led_signal.signal(LedStatusCode::Connecting);
-
         #[cfg(feature = "ble")]
-        select3(
-            self.wifi.run(&self.status_led_signal),
-            self.ble.run(),
-            self.status_led.blink_led(),
-        )
-        .await;
+        select3(self.wifi.run(), self.ble.run(), self.status_led.blink_led()).await;
         #[cfg(not(feature = "ble"))]
-        select(
-            self.wifi.run(&self.status_led_signal),
-            self.status_led.blink_led(),
-        )
-        .await;
+        select(self.wifi.run(), self.status_led.blink_led()).await;
 
         panic!("AAAA");
     }

@@ -8,6 +8,8 @@ runner = "espflash flash --monitor --chip esp32c3 --log-format defmt"
 DEFMT_LOG="debug"
 ESP_WIFI_CONFIG_RX_QUEUE_SIZE="24"
 ESP_WIFI_CONFIG_TX_QUEUE_SIZE="3"
+ESP_WIFI_CONFIG_SCAN_METHOD="1"
+ESP_WIFI_CONFIG_FAILURE_RETRY_CNT="3"
 # ESP_WIFI_CONFIG_DUMP_PACKETS="true"
 
 [build]

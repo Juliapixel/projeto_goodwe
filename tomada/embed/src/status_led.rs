@@ -1,7 +1,6 @@
-use alloc::rc::Rc;
 use embassy_futures::select::{Either, select};
 use embassy_sync::{
-    blocking_mutex::{NoopMutex, raw::NoopRawMutex},
+    blocking_mutex::{NoopMutex, raw::CriticalSectionRawMutex},
     signal::Signal,
 };
 use embassy_time::Timer;
@@ -9,28 +8,25 @@ use esp_hal::gpio::{Level, Output, OutputConfig, OutputPin};
 
 pub struct StatusLed<'a> {
     led: NoopMutex<Output<'a>>,
-    signal: Rc<Signal<NoopRawMutex, LedStatusCode>>,
 }
 
-#[derive(Debug, Clone, Copy, defmt::Format)]
+#[derive(Debug, Clone, Copy, Default, defmt::Format)]
 pub enum LedStatusCode {
     Disconnected,
     Connecting,
     Pairing,
     Working,
+    #[default]
     Idle,
 }
 
+pub static LED_STATUS: Signal<CriticalSectionRawMutex, LedStatusCode> = Signal::new();
+
 impl<'a> StatusLed<'a> {
-    pub fn new(pin: impl OutputPin + 'a) -> (Self, Rc<Signal<NoopRawMutex, LedStatusCode>>) {
-        let signal = Rc::new(Signal::new());
-        (
-            Self {
-                led: NoopMutex::new(Output::new(pin, Level::High, OutputConfig::default())),
-                signal: signal.clone(),
-            },
-            signal,
-        )
+    pub fn new(pin: impl OutputPin + 'a) -> Self {
+        Self {
+            led: NoopMutex::new(Output::new(pin, Level::High, OutputConfig::default())),
+        }
     }
 
     async fn long_blink(&self) {
@@ -55,10 +51,10 @@ impl<'a> StatusLed<'a> {
     }
 
     pub async fn blink_led(&self) -> ! {
-        let get_code = async move || self.signal.wait().await;
+        let get_code = async move || LED_STATUS.wait().await;
         let blink = async |code: LedStatusCode| match code {
             LedStatusCode::Disconnected => {
-                for _ in 0..4 {
+                for _ in 0..3 {
                     self.short_blink().await;
                 }
                 Timer::after_millis(1000).await;
@@ -82,10 +78,10 @@ impl<'a> StatusLed<'a> {
             }
         };
 
-        let mut code = self.signal.try_take().unwrap_or(LedStatusCode::Idle);
+        let mut code = LED_STATUS.try_take().unwrap_or_default();
 
         loop {
-            match select(get_code(), async move {
+            match select(LED_STATUS.wait(), async move {
                 loop {
                     blink(code).await;
                 }
