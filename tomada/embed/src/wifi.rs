@@ -1,7 +1,7 @@
 use core::{net::Ipv4Addr, str::FromStr};
 
 use alloc::string::String;
-use common::{MessageGenerator, MessagePayload, PlugMessage};
+use common::{DisconnectReason, MessagePayload, PlugMessage};
 use defmt::{debug, error, info, warn};
 use dotenvy_macro::dotenv;
 use embassy_futures::select::{Either, select, select3};
@@ -162,19 +162,19 @@ impl<'a> WifiHandler<'a> {
     }
 }
 
-#[derive(Clone, Copy, defmt::Format)]
-enum BrokerConnState {
+#[derive(Clone, Copy, PartialEq, Eq, defmt::Format)]
+enum ConnState {
     Working,
     PreConnect,
     Connecting,
     Disconnected,
-    Pinging([u8; 8]),
+    Pinging([u8; 16]),
 }
 
 const SEND_TIMEOUT: Duration = Duration::from_secs(5);
 
 async fn broker_task(stack: Stack<'_>) -> ! {
-    let mut state = BrokerConnState::PreConnect;
+    let mut state = ConnState::PreConnect;
 
     macro_rules! send_error {
         ($send: expr) => {
@@ -182,11 +182,11 @@ async fn broker_task(stack: Stack<'_>) -> ! {
                 Ok(Ok(())) => debug!("Sent successfully"),
                 Ok(Err(e)) => {
                     error!("Failed to send UDP socket info: {}", e);
-                    state = BrokerConnState::Disconnected;
+                    state = ConnState::Disconnected;
                 }
                 Err(_) => {
                     error!("UDP socket timed out");
-                    state = BrokerConnState::Disconnected;
+                    state = ConnState::Disconnected;
                 }
             };
         };
@@ -198,11 +198,11 @@ async fn broker_task(stack: Stack<'_>) -> ! {
                 }
                 Ok(Err(e)) => {
                     error!("Failed to send UDP socket info: {}", e);
-                    state = BrokerConnState::Disconnected;
+                    state = ConnState::Disconnected;
                 }
                 Err(_) => {
                     error!("UDP socket timed out");
-                    state = BrokerConnState::Disconnected;
+                    state = ConnState::Disconnected;
                 }
             };
         };
@@ -234,11 +234,13 @@ async fn broker_task(stack: Stack<'_>) -> ! {
     );
 
     // TODO: random initial ID
-    let mut generator = MessageGenerator::new(0);
+    let mut seq = 0;
+    let mut broker_seq = 0;
 
-    let mut send = async |msg: MessagePayload| {
+    let mut send = async |msg: MessagePayload, seq: &mut u32| {
         debug!("Sending {}", &msg);
-        let msg = postcard::to_slice(&generator.new_message(msg), &mut msg_buf).unwrap();
+        *seq += 1;
+        let msg = postcard::to_slice(&PlugMessage::new(*seq, msg), &mut msg_buf).unwrap();
         sock.send_to(msg, broker_addr)
             .with_timeout(SEND_TIMEOUT)
             .await
@@ -246,9 +248,23 @@ async fn broker_task(stack: Stack<'_>) -> ! {
 
     loop {
         if !stack.is_link_up() || !stack.is_config_up() {
-            state = BrokerConnState::Disconnected;
+            state = ConnState::Disconnected;
             join(stack.wait_link_up(), stack.wait_config_up()).await;
         }
+
+        if state == ConnState::Disconnected {
+            Timer::after_secs(10).await;
+            state = ConnState::PreConnect;
+        }
+        if state == ConnState::PreConnect {
+            info!("Connecintg to broker");
+            send_error!(
+                send(MessagePayload::Conn, &mut seq).await,
+                ConnState::Connecting
+            );
+            continue;
+        }
+
         let ping_timeout = Timer::at(Instant::now().checked_add(Duration::from_secs(30)).unwrap());
 
         info!("receiving");
@@ -258,16 +274,31 @@ async fn broker_task(stack: Stack<'_>) -> ! {
         let r = select(ping_timeout, sock.recv_from(&mut buf)).await;
 
         match r {
-            Either::First(_timeout) => {
-                debug!("Sending ping");
-                send_error!(
-                    send(common::MessagePayload::Ping {
-                        data: &[1, 2, 3, 4, 5, 6, 7, 8]
-                    })
-                    .await,
-                    BrokerConnState::Pinging([1, 2, 3, 4, 5, 6, 7, 8])
-                );
-            }
+            Either::First(_timeout) => match state {
+                ConnState::Disconnected | ConnState::PreConnect | ConnState::Connecting => {
+                    state = ConnState::Disconnected
+                }
+                ConnState::Pinging(_) => {
+                    warn!("Connection timed out");
+                    send_error!(
+                        send(
+                            MessagePayload::Disconnect {
+                                reason: DisconnectReason::Timeout
+                            },
+                            &mut seq
+                        )
+                        .await,
+                        ConnState::Disconnected
+                    );
+                }
+                _ => {
+                    debug!("Sending ping");
+                    send_error!(
+                        send(common::MessagePayload::Ping { data: [69; 16] }, &mut seq).await,
+                        ConnState::Pinging([69; 16])
+                    );
+                }
+            },
             Either::Second(Ok(d)) => {
                 let data = &buf[..d.0];
                 let Ok(m) = postcard::from_bytes::<PlugMessage>(data) else {
@@ -275,14 +306,44 @@ async fn broker_task(stack: Stack<'_>) -> ! {
                     continue;
                 };
                 info!("Received message: {}", m);
+                if m.seq != broker_seq + 1
+                    && !matches!(
+                        state,
+                        ConnState::Working | ConnState::Connecting | ConnState::PreConnect
+                    )
+                {
+                    warn!("Broker sent messages out of order");
+                    send_error!(
+                        send(
+                            MessagePayload::Disconnect {
+                                reason: DisconnectReason::SequenceError
+                            },
+                            &mut seq
+                        )
+                        .await,
+                        ConnState::Disconnected
+                    );
+                } else {
+                    broker_seq = m.seq;
+                }
                 match (m.payload, state) {
                     (MessagePayload::Ping { data }, _) => {
-                        send_error!(send(MessagePayload::Pong { data }).await);
+                        send_error!(send(MessagePayload::Pong { data }, &mut seq).await);
                     }
-                    (MessagePayload::Pong { data }, BrokerConnState::Pinging(d)) => {
+                    (MessagePayload::Pong { data }, ConnState::Pinging(d)) => {
                         if d == data {
-                            state = BrokerConnState::Working;
+                            state = ConnState::Working;
                         } else {
+                            send_error!(
+                                send(
+                                    MessagePayload::Disconnect {
+                                        reason: DisconnectReason::BadHeartbeat
+                                    },
+                                    &mut seq
+                                )
+                                .await,
+                                ConnState::Disconnected
+                            );
                             warn!("Pong data doesnt match!");
                         }
                     }
@@ -291,21 +352,29 @@ async fn broker_task(stack: Stack<'_>) -> ! {
                     }
                     (MessagePayload::TurnOff, _) => {
                         // TODO: implement turning on/off
-                        send_error!(send(MessagePayload::TurnOffAck).await);
+                        send_error!(send(MessagePayload::TurnOffAck, &mut seq).await);
                     }
                     (MessagePayload::TurnOn, _) => {
                         // TODO: implement turning on/off
-                        send_error!(send(MessagePayload::TurnOnAck).await);
+                        send_error!(send(MessagePayload::TurnOnAck, &mut seq).await);
                     }
                     (MessagePayload::QueryStatus, _) => {
                         // TODO: implement status reading
-                        send_error!(send(MessagePayload::StatusResp { is_on: true }).await);
+                        send_error!(
+                            send(MessagePayload::StatusResp { is_on: true }, &mut seq).await
+                        );
                     }
-                    (MessagePayload::ConnAck, BrokerConnState::Connecting) => {
-                        state = BrokerConnState::Working
+                    (MessagePayload::ConnAck, ConnState::Connecting) => {
+                        info!("Connection to broker estabilished");
+                        broker_seq = m.seq;
+                        state = ConnState::Working
                     }
                     (MessagePayload::ConnAck, s) => {
                         warn!("Received ConnAck during innapropriate stage: {}", s);
+                    }
+                    (MessagePayload::Disconnect { reason }, _) => {
+                        state = ConnState::Disconnected;
+                        warn!("Broker requested disconnect: {}", reason);
                     }
                     (MessagePayload::TurnOffAck, _)
                     | (MessagePayload::TurnOnAck, _)
@@ -317,10 +386,8 @@ async fn broker_task(stack: Stack<'_>) -> ! {
             }
             Either::Second(Err(_)) => {
                 error!("Message truncated, buffer too short!");
-                state = BrokerConnState::Disconnected
+                state = ConnState::Disconnected
             }
         }
-
-        Timer::after_secs(5).await;
     }
 }

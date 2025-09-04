@@ -11,4 +11,4 @@ serde = { version = "1.0.219", features = ["derive"], default-features = false }
 [features]
 default = ["std"]
 std = ["serde/std"]
-no_std = ["dep:defmt"]
+defmt = ["dep:defmt"]

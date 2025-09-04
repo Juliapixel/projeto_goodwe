@@ -16,7 +16,7 @@ bench = false
 path = "./src/bin/main.rs"
 
 [dependencies]
-common = { path = "../common", default-features = false, features = ["no_std"]}
+common = { path = "../common", default-features = false, features = ["defmt"]}
 
 defmt                  = "1.0.1"
 esp-bootloader-esp-idf = { version = "0.2.0", features = ["esp32c3"] }
