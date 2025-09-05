@@ -51,7 +51,6 @@ impl<'a> StatusLed<'a> {
     }
 
     pub async fn blink_led(&self) -> ! {
-        let get_code = async move || LED_STATUS.wait().await;
         let blink = async |code: LedStatusCode| match code {
             LedStatusCode::Disconnected => {
                 for _ in 0..3 {

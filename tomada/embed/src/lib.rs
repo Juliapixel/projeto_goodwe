@@ -9,14 +9,13 @@
 
 #[cfg(not(feature = "ble"))]
 use embassy_futures::select::select;
+#[cfg(feature = "ble")]
 use embassy_futures::select::select3;
-use embassy_net::StackResources;
 use esp_hal::gpio::{Input, InputConfig, InputPin, Level, Output, OutputConfig, OutputPin, Pull};
-use esp_wifi::wifi::{WifiController, WifiDevice};
 
 #[cfg(feature = "ble")]
-use crate::ble::{BleHandler, BleHost};
-use crate::{status_led::StatusLed, wifi::WifiHandler};
+use crate::ble::{BleHost};
+use crate::{status_led::StatusLed};
 
 #[cfg(feature = "ble")]
 mod ble;
@@ -25,10 +24,18 @@ mod wifi;
 
 extern crate alloc;
 
+pub use wifi::WifiHandler;
+#[cfg(feature = "ble")]
+pub use ble::BleHandler;
+
 pub struct App<'a> {
+    /// Dev board status LED
     status_led: StatusLed<'a>,
+    /// Plug board status LED
     plug_led: Output<'a>,
+    /// Relay on plug
     relay: Output<'a>,
+    /// Button on plug
     button: Input<'a>,
     wifi: WifiHandler<'a>,
     #[cfg(feature = "ble")]
@@ -41,11 +48,8 @@ impl<'a> App<'a> {
         plug_led_pin: impl OutputPin + 'a,
         relay_pin: impl OutputPin + 'a,
         button_pin: impl InputPin + 'a,
-        controller: WifiController<'static>,
-        device: WifiDevice<'static>,
-        stack_resources: &'a mut StackResources<5>,
-        #[cfg(feature = "ble")] ble_host: BleHost<'a>,
-        seed: u64,
+        wifi_handler: WifiHandler<'a>,
+        #[cfg(feature = "ble")] ble_handler: BleHandler<'a>,
     ) -> Self {
         let plug_led = Output::new(plug_led_pin, Level::Low, OutputConfig::default());
         let relay = Output::new(relay_pin, Level::Low, OutputConfig::default());
@@ -58,13 +62,13 @@ impl<'a> App<'a> {
             plug_led,
             relay,
             button,
-            wifi: WifiHandler::new(controller, device, stack_resources, seed),
+            wifi: wifi_handler,
             #[cfg(feature = "ble")]
-            ble: BleHandler::new(ble_host),
+            ble: ble_handler,
         }
     }
 
-    pub async fn run(mut self) -> ! {
+    pub async fn run(#[allow(unused_mut)] mut self) -> ! {
         #[cfg(feature = "ble")]
         select3(self.wifi.run(), self.ble.run(), self.status_led.blink_led()).await;
         #[cfg(not(feature = "ble"))]

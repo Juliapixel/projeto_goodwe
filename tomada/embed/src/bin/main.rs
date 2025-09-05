@@ -17,7 +17,9 @@ use esp_wifi::EspWifiController;
 #[cfg(feature = "ble")]
 use esp_wifi::ble::controller::BleConnector;
 use esp_wifi::wifi::WifiDevice;
-use goodwe_plug::App;
+use goodwe_plug::{App, WifiHandler};
+#[cfg(feature = "ble")]
+use goodwe_plug::BleHandler;
 use static_cell::StaticCell;
 #[cfg(feature = "ble")]
 use trouble_host::{Address, HostResources, prelude::DefaultPacketPool};
@@ -96,12 +98,14 @@ async fn main(_spawner: Spawner) {
         peripherals.GPIO5,
         peripherals.GPIO6,
         peripherals.GPIO7,
-        wifi_controller,
-        interfaces.sta,
-        &mut stack_resources,
+        WifiHandler::new(
+            wifi_controller,
+            interfaces.sta,
+            &mut stack_resources,
+            rng.random() as u64 | ((rng.random() as u64) << 32),
+        ),
         #[cfg(feature = "ble")]
-        ble_host,
-        rng.random() as u64 | ((rng.random() as u64) << 32),
+        BleHandler::new(ble_host),
     );
 
     app.run().await;
