@@ -3,8 +3,6 @@
 #[cfg(all(feature = "std", feature = "defmt"))]
 compile_error!("CANNOT HAVE BOTH std AND defmt ENABLED");
 
-use core::num::Wrapping;
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

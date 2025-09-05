@@ -94,7 +94,7 @@ impl BrokerConnection {
         .await
         {
             Err(_) => {
-                warn!("Message receiving timed out");
+                info!("Message receiving timed out");
                 self.feed_msg(None).await
             }
             Ok(None) => {
@@ -103,19 +103,19 @@ impl BrokerConnection {
                 return Ok(0);
             }
             Ok(Some(msg)) => {
-                info!("Received {msg:?} from {}", self.addr);
+                debug!("Received {msg:?} from {}", self.addr);
                 self.feed_msg(Some(msg)).await
             }
         };
 
         match next {
             ControlFlow::Continue(Some(msg)) => {
-                info!("Sending {msg:?} to {}", self.addr);
+                debug!("Sending {msg:?} to {}", self.addr);
                 self.send(msg).await
             }
             ControlFlow::Continue(None) => Ok(0),
             ControlFlow::Break(reason) => {
-                warn!("Disconnecting from {} ({reason:?})", self.addr);
+                info!("Disconnecting from {} ({reason:?})", self.addr);
                 self.disconnect(reason).await
             }
         }
@@ -185,7 +185,7 @@ impl BrokerConnection {
                 /* TODO: implement notification logic */
                 ok!()
             }
-            (Some(Mp::TurnOn), _) => {
+            (Some(Mp::TurnOnAck), _) => {
                 /* TODO: implement notification logic */
                 ok!()
             }
@@ -194,11 +194,11 @@ impl BrokerConnection {
                 ok!()
             }
             (Some(m), Cs::Pinging(_d)) => {
-                info!("Unhandled message: {m:?}");
+                warn!("Unhandled message: {m:?}");
                 ok!()
             }
             (Some(m), Cs::Working) => {
-                info!("Unhandled message: {m:?}");
+                warn!("Unhandled message: {m:?}");
                 ok!()
             }
             (None, Cs::Pinging(_)) => dc!(Dr::Timeout),

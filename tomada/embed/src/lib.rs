@@ -14,8 +14,8 @@ use embassy_futures::select::select3;
 use esp_hal::gpio::{Input, InputConfig, InputPin, Level, Output, OutputConfig, OutputPin, Pull};
 
 #[cfg(feature = "ble")]
-use crate::ble::{BleHost};
-use crate::{status_led::StatusLed};
+use crate::ble::BleHost;
+use crate::status_led::StatusLed;
 
 #[cfg(feature = "ble")]
 mod ble;
@@ -24,9 +24,9 @@ mod wifi;
 
 extern crate alloc;
 
-pub use wifi::WifiHandler;
 #[cfg(feature = "ble")]
 pub use ble::BleHandler;
+pub use wifi::WifiHandler;
 
 pub struct App<'a> {
     /// Dev board status LED

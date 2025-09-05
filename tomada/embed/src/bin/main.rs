@@ -17,9 +17,9 @@ use esp_wifi::EspWifiController;
 #[cfg(feature = "ble")]
 use esp_wifi::ble::controller::BleConnector;
 use esp_wifi::wifi::WifiDevice;
-use goodwe_plug::{App, WifiHandler};
 #[cfg(feature = "ble")]
 use goodwe_plug::BleHandler;
+use goodwe_plug::{App, WifiHandler};
 use static_cell::StaticCell;
 #[cfg(feature = "ble")]
 use trouble_host::{Address, HostResources, prelude::DefaultPacketPool};
