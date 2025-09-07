@@ -8,13 +8,12 @@
 #![warn(clippy::unimplemented)]
 
 #[cfg(not(feature = "ble"))]
-use embassy_futures::select::select;
+use embassy_futures::select::select5;
 #[cfg(feature = "ble")]
-use embassy_futures::select::select3;
+use embassy_futures::select::select6;
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal, watch::Watch};
 use esp_hal::gpio::{Input, InputConfig, InputPin, Level, Output, OutputConfig, OutputPin, Pull};
 
-#[cfg(feature = "ble")]
-use crate::ble::BleHost;
 use crate::status_led::StatusLed;
 
 #[cfg(feature = "ble")]
@@ -70,10 +69,73 @@ impl<'a> App<'a> {
 
     pub async fn run(#[allow(unused_mut)] mut self) -> ! {
         #[cfg(feature = "ble")]
-        select3(self.wifi.run(), self.ble.run(), self.status_led.blink_led()).await;
+        select6(
+            self.wifi.run(),
+            self.ble.run(),
+            self.status_led.blink_led(),
+            led_task(&mut self.plug_led),
+            relay_task(&mut self.relay),
+            button_task(&mut self.button),
+        )
+        .await;
         #[cfg(not(feature = "ble"))]
-        select(self.wifi.run(), self.status_led.blink_led()).await;
+        select5(
+            self.wifi.run(),
+            self.status_led.blink_led(),
+            led_task(&mut self.plug_led),
+            relay_task(&mut self.relay),
+            button_task(&mut self.button),
+        )
+        .await;
 
         panic!("AAAA");
     }
+}
+
+pub type PinSignal = Signal<CriticalSectionRawMutex, Level>;
+pub type PinStatus = Watch<CriticalSectionRawMutex, Level, 4>;
+
+pub static RELAY_SIGNAL: PinSignal = Signal::new();
+pub static RELAY_STATUS: PinStatus = Watch::new();
+
+async fn relay_task(pin: &mut Output<'_>) {
+    let orig_level = pin.output_level();
+    let should_signal = RELAY_STATUS.try_get().is_none_or(|l| l == orig_level);
+    let sender = RELAY_STATUS.sender();
+    if should_signal {
+        sender.send(orig_level);
+    }
+    loop {
+        let level = RELAY_SIGNAL.wait().await;
+        if level != pin.output_level() {
+            pin.set_level(level);
+            sender.send(level);
+        }
+    }
+}
+
+pub static PLUG_LED_SIGNAL: PinSignal = Signal::new();
+pub static PLUG_LED_STATUS: PinStatus = Watch::new();
+
+async fn led_task(pin: &mut Output<'_>) {
+    let orig_level = pin.output_level();
+    let should_signal = PLUG_LED_STATUS.try_get().is_none_or(|l| l == orig_level);
+    let sender = PLUG_LED_STATUS.sender();
+    if should_signal {
+        sender.send(orig_level);
+    }
+    loop {
+        let level = PLUG_LED_SIGNAL.wait().await;
+        if level != pin.output_level() {
+            pin.set_level(level);
+            sender.send(level);
+        }
+    }
+}
+
+pub static BUTTON_STATUS: PinStatus = Watch::new();
+
+async fn button_task(_pin: &mut Input<'_>) {
+    // TODO: detect plug button presses
+    core::future::pending::<()>().await;
 }

@@ -29,13 +29,6 @@ impl<'a> StatusLed<'a> {
         }
     }
 
-    async fn long_blink(&self) {
-        self.set_onboard_led(Level::Low);
-        Timer::after_millis(900).await;
-        self.set_onboard_led(Level::High);
-        Timer::after_millis(100).await;
-    }
-
     async fn short_blink(&self) {
         self.set_onboard_led(Level::Low);
         Timer::after_millis(100).await;

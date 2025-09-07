@@ -14,14 +14,22 @@ use embassy_net::{
     Config, DhcpConfig, IpListenEndpoint, Runner, Stack, StackResources,
     udp::{PacketMetadata, RecvError, SendError, UdpSocket},
 };
-use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
+use embassy_sync::{
+    blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
+    mutex::Mutex,
+    watch::Receiver,
+};
 use embassy_time::{Duration, TimeoutError, Timer, WithTimeout};
+use esp_hal::gpio::Level;
 use esp_wifi::wifi::{
     ClientConfiguration, ScanConfig, WifiController, WifiDevice, WifiError, WifiEvent,
 };
 use futures::FutureExt;
 
-use crate::status_led::{LED_STATUS, LedStatusCode};
+use crate::{
+    RELAY_SIGNAL, RELAY_STATUS,
+    status_led::{LED_STATUS, LedStatusCode},
+};
 
 extern crate alloc;
 
@@ -222,6 +230,7 @@ struct Client<'a> {
     state: ConnState,
     addr: SocketAddrV4,
     socket: UdpSocket<'a>,
+    relay_state: Receiver<'static, CriticalSectionRawMutex, Level, 4>,
 }
 
 impl<'a> Client<'a> {
@@ -232,6 +241,7 @@ impl<'a> Client<'a> {
             socket,
             seq: Default::default(),
             server_seq: Default::default(),
+            relay_state: RELAY_STATUS.receiver().unwrap(),
         }
     }
 
@@ -363,16 +373,18 @@ impl<'a> Client<'a> {
             }
             (Some(Mp::Pong { data: _ }), _) => dc!(Dr::ProtocolError),
             (Some(Mp::TurnOff), _) => {
-                /* TODO: implement action logic */
-                ok!()
+                info!("[broker] Broker requested TurnOff");
+                RELAY_SIGNAL.signal(Level::Low);
+                ok!(Mp::TurnOnAck)
             }
             (Some(Mp::TurnOn), _) => {
-                /* TODO: implement action logic */
-                ok!()
+                info!("[broker] Broker requested TurnOn");
+                RELAY_SIGNAL.signal(Level::High);
+                ok!(Mp::TurnOnAck)
             }
             (Some(Mp::QueryStatus), _) => {
-                /* TODO: implement query logic */
-                ok!()
+                let is_on = self.relay_state.try_get().is_some_and(|l| l == Level::High);
+                ok!(Mp::StatusResp { is_on })
             }
             (Some(m), S::Working) => {
                 info!("[broker] Unhandled message: {:?}", m);
