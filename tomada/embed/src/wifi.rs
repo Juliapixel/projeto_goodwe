@@ -15,9 +15,7 @@ use embassy_net::{
     udp::{PacketMetadata, RecvError, SendError, UdpSocket},
 };
 use embassy_sync::{
-    blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
-    mutex::Mutex,
-    watch::Receiver,
+    blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex}, lazy_lock::LazyLock, mutex::Mutex, watch::Receiver
 };
 use embassy_time::{Duration, TimeoutError, Timer, WithTimeout};
 use esp_hal::gpio::Level;
@@ -260,8 +258,12 @@ impl<'a> Client<'a> {
     }
 
     pub async fn connect(&mut self) -> Result<(), ConnError> {
+        // TODO: random UUID
+        static UUID: LazyLock<uuid::Uuid> = LazyLock::new(|| {
+            "338c1c8a-c3a2-4715-be92-8911248bbb8c".parse().unwrap()
+        });
         self.state = ConnState::Connecting;
-        self.send(MessagePayload::Conn).await
+        self.send(MessagePayload::Conn { id: *UUID.get() }).await
     }
 
     pub async fn disconnect(&mut self, reason: DisconnectReason) -> Result<(), ConnError> {
@@ -375,7 +377,7 @@ impl<'a> Client<'a> {
             (Some(Mp::TurnOff), _) => {
                 info!("[broker] Broker requested TurnOff");
                 RELAY_SIGNAL.signal(Level::Low);
-                ok!(Mp::TurnOnAck)
+                ok!(Mp::TurnOffAck)
             }
             (Some(Mp::TurnOn), _) => {
                 info!("[broker] Broker requested TurnOn");
