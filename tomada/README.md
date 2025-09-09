@@ -51,10 +51,11 @@ cargo run -r
 | Broker               |   🚧   |
 | Dispositivo mock     |   ❌   |
 | Autenticação         |   ❌   |
-| Testar estabilidade  |   ❌   |
-| Mensagens/comandos   |   ❌   |
+| Testar estabilidade  |   🚧   |
+| Mensagens/comandos   |   ✅   |
 
 ### Diagrama de fluxo
+
 ```mermaid
 sequenceDiagram
     participant E as ESP32C3
@@ -82,6 +83,7 @@ sequenceDiagram
     end
 ```
 ## Hardware
+
 - ESP32C3
 - Trocar MCU interno por um próprio
   - o interno é Bekken (ultra dificil de usar)
@@ -93,7 +95,7 @@ sequenceDiagram
 
 | Tarefa               | Status |
 |----------------------|:------:|
-| Wi-Fi                |   🚧   |
-| BLE                  |   🚧   |
-| Controle de hardware |   ❌   |
+| Wi-Fi                |   ✅   |
+| BLE                  |   ❌   |
+| Controle de hardware |   ✅   |
 | Montagem             |   ❌   |
