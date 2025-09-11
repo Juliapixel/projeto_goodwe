@@ -82,21 +82,13 @@ just ssh=$SSH_HOST deploy_docker
 sequenceDiagram
     participant E as ESP32C3
     participant BR as Broker
-    participant U as Dispositivo
     participant F as Frontend
     participant B as Backend
-    alt BLE
-    U ->> E: Configuração Wi-Fi (SSID, Senha)
-    end
     E ->> BR: Handshake
     BR ->> B: Auth
     BR ->> E: ACK
-    alt BLE
-    E ->> U: Sucesso
-    end
     loop Depois de configurado
-    U ->> F: Botão (liga, desliga, etc.)
-    F ->> B: POST JSON
+    F ->> B: POST JSON (liga, desliga, etc.)
     B ->> BR: Mensagem
     BR ->> E: Comandos (liga, desliga, etc.)
     E ->> BR: Sucesso/Erro
