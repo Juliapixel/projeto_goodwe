@@ -27,9 +27,31 @@ cargo build -r
 cargo run -r
 ```
 
+### Docker (broker)
 
+#### Dependências
+
+- just
+- tomlq
+- pv
+- docker (obviamente)
+
+#### Build
+
+```bash
+just build_docker
+```
+
+#### Deploy
+
+```bash
+# alvo do commando SSH
+SSH_HOST=exemplo@192.168.0.0
+just ssh=$SSH_HOST deploy_docker
+```
 
 ## Software
+
 - [Tomada](embed)
   - [ESP-RS](https://github.com/esp-rs)
   - [ESP-HAL](https://github.com/esp-rs/esp-hal) (oficial da Espressif)
@@ -82,6 +104,7 @@ sequenceDiagram
     B ->> F: Status
     end
 ```
+
 ## Hardware
 
 - ESP32C3
