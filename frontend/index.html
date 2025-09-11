@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <title> goodwe client</title>
+</head>
+<body>
+    <div class="container">
+    <nav id="sidebar">
+        <div id="side_content">
+            <div id="user">
+                <img src="/src/user-sem-rosto.jpeg" id="icon_user" alt="icon de usuário" width="200px">
+
+                <p id="dados">
+                    <span class="user_details">
+                        Nome3445
+                    </span>
+                    <span class="user_details">
+                        usuário
+                    </span>
+                </p>
+            </div>
+
+            <ul id="side_items">
+                <li class="side-item active">
+                    <a href='/index.html'>
+                        <i class="fa-solid fa-charging-station"></i>
+                        <span class="item_description">
+                            Economia de energia
+                        </span>
+                    </a>
+                </li>
+                <li class="side-item active">
+                    <a href='/placas.html'>
+                        <i class="fa-solid fa-solar-panel"></i>
+                        <span class="item_description">
+                            Placas solares
+                        </span>
+                    </a>
+                </li>
+                <li class="side-item active">
+                    <a href='/dados.html'>
+                        <i class="fa-solid fa-chart-simple"></i>
+                        <span class="item_description">
+                            Dados gerais
+                        </span>
+                    </a>
+                </li>
+            <li class ="side-item active">
+                    <a href='/config.html'>
+                        <i class="fa-solid fa-gears"></i>
+                        <span class="item_description">
+                            Configurações
+                        </span>
+                    </a>
+                </li>
+            </ul>
+            <button id="open_btn">
+                <i id="open_btn_icon" class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+        <div id="logout">
+            <button id="logout_button">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                <span class="item_description">
+                        Logout
+                </span>
+            </button>
+        </div>
+    </nav>
+    
+    <main class="conteudo">
+        <div id="search_box">
+            <i class="fa-solid fa-robot"></i>
+            <input type="text" placeholder="Digite sua pergunta..." />
+        <button>Enviar</button>
+        </div>
+
+        <section class="box">  
+            <h1>
+                Economia de energia
+            </h1>
+            <h2> Ativar modo de economia de energia</h2>
+            <p class="economia_energia_description"> descrição da função do modo de economia de energia </p>
+            <label class="switch">
+            <input type="checkbox" id="modoEconomia" onchange="toggleModo()">
+            <span class="slider"></span>
+            </label>
+            <ul>
+                <li> 
+                    <h3> Gráfico de economia mensal </h3>
+                    <p> Lorem ipsum dolor sit amet consectetur adipisicing elit. Modi maxime ad quo sit. Suscipit, fuga fugit reiciendis minus libero minima sed, voluptates dolorum in aperiam perspiciatis, excepturi non maxime id.
+                    </p>
+                </li>
+            </ul>
+            
+            <canvas id="graficoEconomia"></canvas>
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <script>
+            const ctx = document.getElementById('graficoEconomia').getContext('2d');
+            const graficoEconomia = new Chart(ctx, {
+            type: 'line',
+            data: {
+            labels: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho'],
+            datasets: [{
+            label: 'Economia de Energia (kWh)',
+            data: [22, 35, 28, 40, 33, 45], 
+            borderColor: 'black',
+            backgroundColor: 'rgba(255, 0, 0, 0.7)',
+            fill: true,
+            tension: 0,
+            pointStyle: 'circle',
+            pointRadius: 5,
+            pointBackgroundColor: 'red'
+            }]
+            },
+            options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                display: true
+            },
+            title: {
+                display: true,
+                text: 'Economia Mensal de Energia com Modo Econômico'
+            }
+            },
+            scales: {
+                y: {
+                beginAtZero: true,
+            title: {
+            display: true,
+            text: 'kWh Economizados'
+            }
+            },
+            x: {
+            title: {
+                display: true,
+                text: 'Mês'
+                }
+            }
+        }
+    }
+});
+        </script>
+        <ul>
+            <li> 
+                <h3> Gráfico de economia diária </h3>
+                <p> Lorem ipsum dolor sit amet consectetur adipisicing elit. Illum reiciendis nostrum aliquid veritatis voluptatem commodi reprehenderit inventore, eveniet et suscipit explicabo voluptates, esse iure nihil dolore alias. Praesentium, possimus itaque?</p>
+            </li>
+        </ul>
+        <canvas id="graficoHorario"></canvas>
+<script>
+const ctxHorario = document.getElementById('graficoHorario').getContext('2d');
+const graficoHorario = new Chart(ctxHorario, {
+    type: 'line',
+    data: {
+    labels: ['00h', '01h', '02h', '03h', '04h', '05h', '06h', '07h', '08h', '09h', '10h', '11h', '12h', '13h', '14h', '15h', '16h', '17h', '18h', '19h', '20h', '21h', '22h', '23h'],
+    datasets: [{
+        label: 'Economia de Energia (kWh)',
+        data: [0.2, 0.15, 0.1, 0.1, 0.12, 0.18, 0.25, 0.4, 0.6, 0.8, 1.0, 1.2, 1.1, 1.0, 0.9, 0.85, 0.8, 0.75, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2],
+        borderColor: 'black',
+        backgroundColor: 'rgba(255, 0, 0, 0.7)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+        pointBackgroundColor: 'red'
+        }]
+    },
+    options: {
+    responsive: true,
+    plugins: {
+        legend: {
+            display: true
+        },
+        title: {
+            display: true,
+            text: 'Economia de Energia por Horário (kWh)'
+        }
+    },
+    scales: {
+        y: {
+            beginAtZero: true,
+            title: {
+            display: true,
+            text: 'kWh Economizados'
+            }
+        },
+        x: {
+            title: {
+            display: true,
+            text: 'Horário'
+                }
+            }
+        }
+    }
+});
+</script>
+    </section>
+    </main>
+    </div>
+    
+    <script src="/projeto_goodwe/frontend/javascript/script.js"></script>
+</body>
+</html>
