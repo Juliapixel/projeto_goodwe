@@ -7,7 +7,10 @@ pub use broker::*;
 use chrono::Utc;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use tokio::sync::{mpsc::{Receiver as MpscReceiver, Sender as MpscSender}, oneshot::{Receiver, Sender as OneshotSender}};
+use tokio::sync::{
+    mpsc::{Receiver as MpscReceiver, Sender as MpscSender},
+    oneshot::{Receiver, Sender as OneshotSender},
+};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -19,19 +22,19 @@ pub enum PowerState {
     On,
     Off,
     #[default]
-    Unknown
+    Unknown,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlugCommand {
     TurnOn,
-    TurnOff
+    TurnOff,
 }
 
 #[derive(Debug)]
 pub struct PlugTask {
     completion: OneshotSender<bool>,
-    command: PlugCommand
+    command: PlugCommand,
 }
 
 pub type TaskTx = MpscSender<PlugTask>;
@@ -41,7 +44,7 @@ pub type TaskRx = MpscReceiver<PlugTask>;
 pub struct PlugState {
     last_seen: chrono::DateTime<Utc>,
     power_state: PowerState,
-    task_tx: TaskTx
+    task_tx: TaskTx,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -71,7 +74,7 @@ impl PlugTask {
                 command,
                 completion: tx,
             },
-            rx
+            rx,
         )
     }
 

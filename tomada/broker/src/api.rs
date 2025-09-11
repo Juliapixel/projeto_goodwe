@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use axum::{extract::{Query, State}, Json};
+use axum::{
+    Json,
+    extract::{Query, State},
+};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tokio::time::timeout;
@@ -29,7 +32,10 @@ pub struct QueryStatusResponse {
         (status = 200, body = QueryStatusResponse)
     )
 )]
-pub async fn query_status(State(s): State<SharedState>, Query(params): Query<QueryStatusParams>) -> Json<QueryStatusResponse> {
+pub async fn query_status(
+    State(s): State<SharedState>,
+    Query(params): Query<QueryStatusParams>,
+) -> Json<QueryStatusResponse> {
     if let Some(status) = s.plugs.get(&params.id) {
         Json(QueryStatusResponse {
             state: Some(status.power_state),
@@ -74,7 +80,10 @@ pub struct SetStateResponse {
         (status = 200, description = "Success", body = SetStateResponse),
     )
 )]
-pub async fn set_state(State(s): State<SharedState>, Query(query): Query<StateQuery>) -> Json<SetStateResponse> {
+pub async fn set_state(
+    State(s): State<SharedState>,
+    Query(query): Query<StateQuery>,
+) -> Json<SetStateResponse> {
     info!("Turning {} {:?}", *query.id, &query.state);
     if let Some(plug) = s.plugs.get(&query.id) {
         let (task, rx) = PlugTask::new(match query.state {
@@ -90,24 +99,32 @@ pub async fn set_state(State(s): State<SharedState>, Query(query): Query<StateQu
             } else {
                 rx.await.is_ok_and(|i| i)
             }
-        }).await.is_ok_and(|i| i);
+        })
+        .await
+        .is_ok_and(|i| i);
 
-        Json(SetStateResponse { present: true, success })
+        Json(SetStateResponse {
+            present: true,
+            success,
+        })
     } else {
-        Json(SetStateResponse { present: false, success: false })
+        Json(SetStateResponse {
+            present: false,
+            success: false,
+        })
     }
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct ListResponse {
-    plugs: Vec<PlugListInfo>
+    plugs: Vec<PlugListInfo>,
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct PlugListInfo {
     id: PlugId,
     state: PowerState,
-    last_seen: chrono::DateTime<Utc>
+    last_seen: chrono::DateTime<Utc>,
 }
 
 #[utoipa::path(
@@ -119,7 +136,15 @@ pub struct PlugListInfo {
 )]
 pub async fn list_plugs(State(s): State<SharedState>) -> Json<ListResponse> {
     Json(ListResponse {
-        plugs: s.plugs.iter().map(|k| PlugListInfo { id: *k.key(), state: k.value().power_state, last_seen: k.value().last_seen }).collect()
+        plugs: s
+            .plugs
+            .iter()
+            .map(|k| PlugListInfo {
+                id: *k.key(),
+                state: k.value().power_state,
+                last_seen: k.value().last_seen,
+            })
+            .collect(),
     })
 }
 

@@ -1,24 +1,31 @@
 use std::{
-    collections::HashMap,
-    fmt::Display,
-    net::SocketAddr,
-    num::Wrapping,
-    ops::ControlFlow,
-    sync::Arc,
-    time::Duration,
+    collections::HashMap, fmt::Display, net::SocketAddr, num::Wrapping, ops::ControlFlow,
+    sync::Arc, time::Duration,
 };
 
 use chrono::Utc;
 use common::{DisconnectReason, MessagePayload, PlugMessage};
 use dashmap::mapref::one::RefMut;
-use futures::{stream::{SplitSink, SplitStream}, SinkExt, StreamExt};
+use futures::{
+    SinkExt, StreamExt,
+    stream::{SplitSink, SplitStream},
+};
+use tokio::{
+    net::ToSocketAddrs,
+    select,
+    sync::{
+        Mutex,
+        mpsc::{Receiver, Sender, channel},
+    },
+    time::timeout,
+};
 use tokio_util::udp::UdpFramed;
 use tracing::{debug, info, warn};
-use tokio::{
-    net::ToSocketAddrs, select, sync::{mpsc::{channel, Receiver, Sender}, Mutex}, time::timeout
-};
 
-use crate::{broker::proto::{BrokerCodec, CodecError}, PlugCommand, PlugId, PlugTask, PowerState, SharedState, TaskRx};
+use crate::{
+    PlugCommand, PlugId, PlugTask, PowerState, SharedState, TaskRx,
+    broker::proto::{BrokerCodec, CodecError},
+};
 
 mod proto;
 
@@ -35,7 +42,6 @@ type MsgRx = Receiver<PlugMessage>;
 
 type BrokerSink = Arc<Mutex<SplitSink<UdpFramed<BrokerCodec>, (PlugMessage, SocketAddr)>>>;
 type BrokerStream = SplitStream<UdpFramed<BrokerCodec>>;
-
 
 pub struct Broker {
     stream: BrokerStream,
@@ -66,7 +72,7 @@ struct BrokerConnection {
 #[derive(Debug)]
 enum ConnectionError {
     Dead,
-    Codec(CodecError)
+    Codec(CodecError),
 }
 
 impl From<CodecError> for ConnectionError {
@@ -77,10 +83,7 @@ impl From<CodecError> for ConnectionError {
 
 impl Broker {
     pub async fn new(addr: impl ToSocketAddrs, shared_state: SharedState) -> Self {
-        let socket =
-        tokio::net::UdpSocket::bind(addr)
-            .await
-            .unwrap();
+        let socket = tokio::net::UdpSocket::bind(addr).await.unwrap();
         let framed = UdpFramed::new(socket, BrokerCodec);
         let (sink, stream) = framed.split();
 
@@ -102,7 +105,12 @@ impl Broker {
                 tx.send(msg).await.unwrap();
                 tracing::info!("New session for {addr}");
                 self.sessions.insert(addr, tx);
-                tokio::spawn(worker_task(rx, self.sink.clone(), addr, self.shared_state.clone()));
+                tokio::spawn(worker_task(
+                    rx,
+                    self.sink.clone(),
+                    addr,
+                    self.shared_state.clone(),
+                ));
             } else if let Some(conn) = self.sessions.get(&addr) {
                 conn.send(msg).await.unwrap();
             }
@@ -131,10 +139,7 @@ impl BrokerConnection {
         self.sink
             .lock()
             .await
-            .send((
-                PlugMessage::new(self.seq.0, payload),
-                self.addr
-            ))
+            .send((PlugMessage::new(self.seq.0, payload), self.addr))
             .await?;
         Ok(())
     }
@@ -154,8 +159,7 @@ impl BrokerConnection {
     }
 
     pub fn can_recv(&self) -> bool {
-        self.state != ConnectionState::Dead
-        && !self.msg_rx.is_closed()
+        self.state != ConnectionState::Dead && !self.msg_rx.is_closed()
     }
 
     pub async fn recv(&mut self) -> Result<(), ConnectionError> {
@@ -272,7 +276,11 @@ impl BrokerConnection {
                 let (tx, rx) = tokio::sync::mpsc::channel(4);
                 self.shared_state.plugs.insert(
                     id.into(),
-                    crate::PlugState { last_seen: chrono::Utc::now(), power_state: crate::PowerState::Unknown, task_tx: tx }
+                    crate::PlugState {
+                        last_seen: chrono::Utc::now(),
+                        power_state: crate::PowerState::Unknown,
+                        task_tx: tx,
+                    },
                 );
                 self.plug_id = Some(id.into());
                 tracing::info!("New plug connected: {id}");
@@ -297,14 +305,20 @@ impl BrokerConnection {
             (Some(Mp::Pong { data: _ }), _) => dc!(Dr::ProtocolError),
             (Some(Mp::TurnOffAck), _) => {
                 self.get_state_mut().unwrap().power_state = crate::PowerState::Off;
-                for t in self.tasks.extract_if(.., |t| t.command() == PlugCommand::TurnOff) {
+                for t in self
+                    .tasks
+                    .extract_if(.., |t| t.command() == PlugCommand::TurnOff)
+                {
                     t.complete(true);
                 }
                 ok!()
             }
             (Some(Mp::TurnOnAck), _) => {
                 self.get_state_mut().unwrap().power_state = crate::PowerState::On;
-                for t in self.tasks.extract_if(.., |t| t.command() == PlugCommand::TurnOn) {
+                for t in self
+                    .tasks
+                    .extract_if(.., |t| t.command() == PlugCommand::TurnOn)
+                {
                     t.complete(true);
                 }
                 ok!()

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub enum MessagePayload {
     /// Request from plug to initiate connection
     Conn {
-        id: uuid::Uuid
+        id: uuid::Uuid,
     },
     ConnAck,
     Disconnect {
@@ -34,14 +34,17 @@ pub enum MessagePayload {
     },
 }
 
-
 #[cfg(feature = "defmt")]
 impl defmt::Format for MessagePayload {
     fn format(&self, fmt: defmt::Formatter) {
         match self {
-            MessagePayload::Conn { id } => defmt::write!(fmt, "Conn {{ id: {} }}", &defmt::Display2Format(&id)),
+            MessagePayload::Conn { id } => {
+                defmt::write!(fmt, "Conn {{ id: {} }}", &defmt::Display2Format(&id))
+            }
             MessagePayload::ConnAck => defmt::write!(fmt, "ConnAck"),
-            MessagePayload::Disconnect { reason } => defmt::write!(fmt, "Disconnect {{ reason: {} }}", reason),
+            MessagePayload::Disconnect { reason } => {
+                defmt::write!(fmt, "Disconnect {{ reason: {} }}", reason)
+            }
             MessagePayload::Ping { data } => defmt::write!(fmt, "Ping {{ data: {} }}", data),
             MessagePayload::Pong { data } => defmt::write!(fmt, "Pong {{ data: {} }}", data),
             MessagePayload::TurnOn => defmt::write!(fmt, "TurnOn"),
@@ -49,7 +52,9 @@ impl defmt::Format for MessagePayload {
             MessagePayload::TurnOff => defmt::write!(fmt, "TurnOff"),
             MessagePayload::TurnOffAck => defmt::write!(fmt, "TurnOffAck"),
             MessagePayload::QueryStatus => defmt::write!(fmt, "QueryStatus"),
-            MessagePayload::StatusResp { is_on } => defmt::write!(fmt, "StatusResp {{ is_on: {} }}", is_on),
+            MessagePayload::StatusResp { is_on } => {
+                defmt::write!(fmt, "StatusResp {{ is_on: {} }}", is_on)
+            }
         }
     }
 }
