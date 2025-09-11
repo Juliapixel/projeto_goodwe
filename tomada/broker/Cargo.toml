@@ -7,6 +7,7 @@ edition = "2024"
 anyhow = "1.0.99"
 axum = "0.8.4"
 chrono = { version = "0.4.41", features = ["serde"] }
+clap = { version = "4.5.47", features = ["derive"] }
 common = { path = "../common" }
 dashmap = "6.1.0"
 futures = "0.3.31"

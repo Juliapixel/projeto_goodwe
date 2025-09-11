@@ -1,10 +1,10 @@
 use std::net::Ipv4Addr;
 
 use axum::{body::Body, http::Request};
-use broker::{Broker, SharedState, api};
+use broker::{Broker, SharedState, api, cli::ARGS};
 use tokio::{net::TcpListener, select};
 use tower_http::trace::TraceLayer;
-use tracing::{error, info, level_filters::LevelFilter};
+use tracing::{info, level_filters::LevelFilter};
 use tracing_subscriber::EnvFilter;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -28,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
 
     let state = SharedState::default();
 
-    let mut broker = Broker::new((Ipv4Addr::UNSPECIFIED, 8080), state.clone()).await;
+    let mut broker = Broker::new((Ipv4Addr::UNSPECIFIED, ARGS.broker_port), state.clone()).await;
 
     let trace_layer = TraceLayer::new_for_http().make_span_with(|req: &Request<Body>| {
         tracing::info_span!(
@@ -49,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
         .layer(trace_layer)
         .layer(tower_http::cors::CorsLayer::permissive());
 
-    let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 8081)).await?;
+    let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, ARGS.http_port)).await?;
 
     let web_task = tokio::spawn(async move {
         axum::serve(listener, router)
@@ -68,9 +68,36 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(unix)]
 async fn shutdown_requested() {
-    // TODO: support linux signals
-    if let Err(e) = tokio::signal::ctrl_c().await {
-        error!("ctrl+c signal errored: {e}");
-    };
+    use tokio::signal::unix::SignalKind;
+
+    let mut sigint = tokio::signal::unix::signal(SignalKind::interrupt())
+        .expect("Failed to create a shutdown signal handler");
+    let mut sigterm = tokio::signal::unix::signal(SignalKind::terminate())
+        .expect("Failed to create a shutdown signal handler");
+
+    futures::future::select(Box::pin(sigint.recv()), Box::pin(sigterm.recv())).await;
+}
+
+#[cfg(windows)]
+async fn shutdown_requested() {
+    use core::pin::Pin;
+
+    let mut ctrl_c =
+        tokio::signal::windows::ctrl_c().expect("Failed to create a ctrl+c signal handler");
+    let mut ctrl_close =
+        tokio::signal::windows::ctrl_close().expect("Failed to create a close signal handler");
+    let mut ctrl_logoff =
+        tokio::signal::windows::ctrl_logoff().expect("Failed to create a logoff signal handler");
+    let mut ctrl_shutdown = tokio::signal::windows::ctrl_shutdown()
+        .expect("Failed to create a shutdown signal handler");
+
+    futures::future::select_all::<[Pin<Box<dyn Future<Output = _> + Send>>; 4]>([
+        Box::pin(ctrl_c.recv()),
+        Box::pin(ctrl_close.recv()),
+        Box::pin(ctrl_logoff.recv()),
+        Box::pin(ctrl_shutdown.recv()),
+    ])
+    .await;
 }

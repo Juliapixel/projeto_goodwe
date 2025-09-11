@@ -1,5 +1,6 @@
 pub mod api;
 mod broker;
+pub mod cli;
 
 use std::{ops::Deref, sync::Arc};
 
