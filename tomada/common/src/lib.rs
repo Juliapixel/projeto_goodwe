@@ -1,23 +1,25 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(all(feature = "std", feature = "no_std"))]
-compile_error!("CANNOT HAVE BOTH std AND no_std ENABLED");
-
-use core::num::Wrapping;
+#[cfg(all(feature = "std", feature = "defmt"))]
+compile_error!("CANNOT HAVE BOTH std AND defmt ENABLED");
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[cfg_attr(feature = "no_std", derive(defmt::Format))]
-pub enum MessagePayload<'a> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum MessagePayload {
     /// Request from plug to initiate connection
-    Conn,
+    Conn {
+        id: uuid::Uuid,
+    },
     ConnAck,
+    Disconnect {
+        reason: DisconnectReason,
+    },
     Ping {
-        data: &'a [u8],
+        data: [u8; 16],
     },
     Pong {
-        data: &'a [u8],
+        data: [u8; 16],
     },
     /// Request from broker to turn plug on
     TurnOn,
@@ -32,33 +34,52 @@ pub enum MessagePayload<'a> {
     },
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[cfg_attr(feature = "no_std", derive(defmt::Format))]
-pub struct PlugMessage<'a> {
+#[cfg(feature = "defmt")]
+impl defmt::Format for MessagePayload {
+    fn format(&self, fmt: defmt::Formatter) {
+        match self {
+            MessagePayload::Conn { id } => {
+                defmt::write!(fmt, "Conn {{ id: {} }}", &defmt::Display2Format(&id))
+            }
+            MessagePayload::ConnAck => defmt::write!(fmt, "ConnAck"),
+            MessagePayload::Disconnect { reason } => {
+                defmt::write!(fmt, "Disconnect {{ reason: {} }}", reason)
+            }
+            MessagePayload::Ping { data } => defmt::write!(fmt, "Ping {{ data: {} }}", data),
+            MessagePayload::Pong { data } => defmt::write!(fmt, "Pong {{ data: {} }}", data),
+            MessagePayload::TurnOn => defmt::write!(fmt, "TurnOn"),
+            MessagePayload::TurnOnAck => defmt::write!(fmt, "TurnOnAck"),
+            MessagePayload::TurnOff => defmt::write!(fmt, "TurnOff"),
+            MessagePayload::TurnOffAck => defmt::write!(fmt, "TurnOffAck"),
+            MessagePayload::QueryStatus => defmt::write!(fmt, "QueryStatus"),
+            MessagePayload::StatusResp { is_on } => {
+                defmt::write!(fmt, "StatusResp {{ is_on: {} }}", is_on)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct PlugMessage {
     /// sequential ID for dropped packet detection
-    pub id: u32,
-    #[serde(borrow)]
-    pub payload: MessagePayload<'a>,
+    pub seq: u32,
+    pub payload: MessagePayload,
 }
 
-/// Convenience struct to make new messages with sequential IDs
-pub struct MessageGenerator {
-    id: Wrapping<u32>,
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum DisconnectReason {
+    BadHeartbeat,
+    Timeout,
+    ProtocolError,
+    SequenceError,
+    #[default]
+    Closed,
 }
 
-impl<'a> PlugMessage<'a> {
-    pub fn new(id: u32, payload: MessagePayload<'a>) -> Self {
-        Self { id, payload }
-    }
-}
-
-impl MessageGenerator {
-    pub fn new(id: u32) -> Self {
-        Self { id: Wrapping(id) }
-    }
-
-    pub fn new_message<'a>(&mut self, payload: MessagePayload<'a>) -> PlugMessage<'a> {
-        self.id += 1;
-        PlugMessage::new(self.id.0, payload)
+impl PlugMessage {
+    pub fn new(seq: u32, payload: MessagePayload) -> Self {
+        Self { seq, payload }
     }
 }

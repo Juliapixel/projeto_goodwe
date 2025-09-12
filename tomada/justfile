@@ -1,10 +1,27 @@
+ssh:=""
+arch:="amd64"
+
 _default:
     just --list
 
-clean:
+clean_broker:
     cargo clean
+
+clean_embed:
     cd embed && cargo clean
 
-fmt:
+clean: clean_broker clean_embed
+
+fmt_broker:
     cargo fmt
+
+fmt_embed:
     cd embed && cargo fmt
+
+fmt: fmt_broker fmt_embed
+
+build_docker:
+    docker buildx build --network host --platform=linux/{{ arch }} -t goodwe_broker:latest -t goodwe_broker:$(tq -f ./broker/Cargo.toml -r '.package.version') .
+
+deploy_docker: build_docker
+    docker save --platform=linux/{{ arch }} goodwe_broker:latest | zstd -T8 -5 | pv -W | ssh {{ ssh }} 'docker load'

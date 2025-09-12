@@ -2,6 +2,7 @@
 
 use defmt::{debug, error, info, panic};
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, lazy_lock::LazyLock, mutex::Mutex};
+use embassy_time::Duration;
 use esp_wifi::ble::controller::BleConnector;
 use futures::future::join;
 use static_cell::StaticCell;
@@ -55,15 +56,15 @@ impl<'b> BleHandler<'b> {
 
     fn get_adv_data() -> &'static [u8] {
         static ADV_DATA: LazyLock<&'static [u8]> = embassy_sync::lazy_lock::LazyLock::new(|| {
-            static ADV_DATA_BUF: StaticCell<([u8; 32], usize)> = StaticCell::new();
+            static ADV_DATA_BUF: StaticCell<([u8; 64], usize)> = StaticCell::new();
             let (buf, len) = ADV_DATA_BUF.init_with(|| {
-                let mut adv_data = [0u8; 32];
+                let mut adv_data = [0u8; 64];
                 let uuid = "5131aad8-f51e-4870-8d34-e74c0079646f"
                     .parse::<uuid::Uuid>()
                     .unwrap();
                 let adv_data_len = AdStructure::encode_slice(
                     &[
-                        AdStructure::ServiceUuids128(&[*uuid.as_bytes()]),
+                        // AdStructure::ServiceUuids128(&[*uuid.as_bytes()]),
                         AdStructure::CompleteLocalName(b"Tomada Goodwe"),
                         AdStructure::Flags(LE_GENERAL_DISCOVERABLE | BR_EDR_NOT_SUPPORTED),
                     ],
@@ -78,8 +79,6 @@ impl<'b> BleHandler<'b> {
         ADV_DATA.get()
     }
 
-    fn setup(&self) {}
-
     pub async fn run(&mut self) {
         let server = Server::new_with_config(GapConfig::Peripheral(PeripheralConfig {
             name: "Tomada Goodwe",
@@ -90,10 +89,15 @@ impl<'b> BleHandler<'b> {
             loop {
                 let conn = loop {
                     info!("Advertising");
+                    let adv_params = AdvertisementParameters {
+                        interval_max: Duration::from_millis(1000),
+                        interval_min: Duration::from_millis(500),
+                        ..Default::default()
+                    };
                     let adv = self
                         .peripheral
                         .advertise(
-                            &AdvertisementParameters::default(),
+                            &adv_params,
                             Advertisement::ConnectableScannableUndirected {
                                 adv_data: BleHandler::get_adv_data(),
                                 scan_data: &[],

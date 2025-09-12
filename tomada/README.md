@@ -27,9 +27,31 @@ cargo build -r
 cargo run -r
 ```
 
+### Docker (broker)
 
+#### Dependências
+
+- just
+- tomlq
+- pv
+- docker (obviamente)
+
+#### Build
+
+```bash
+just build_docker
+```
+
+#### Deploy
+
+```bash
+# alvo do commando SSH
+SSH_HOST=exemplo@192.168.0.0
+just ssh=$SSH_HOST deploy_docker
+```
 
 ## Software
+
 - [Tomada](embed)
   - [ESP-RS](https://github.com/esp-rs)
   - [ESP-HAL](https://github.com/esp-rs/esp-hal) (oficial da Espressif)
@@ -51,29 +73,22 @@ cargo run -r
 | Broker               |   🚧   |
 | Dispositivo mock     |   ❌   |
 | Autenticação         |   ❌   |
-| Testar estabilidade  |   ❌   |
-| Mensagens/comandos   |   ❌   |
+| Testar estabilidade  |   🚧   |
+| Mensagens/comandos   |   ✅   |
 
 ### Diagrama de fluxo
+
 ```mermaid
 sequenceDiagram
     participant E as ESP32C3
     participant BR as Broker
-    participant U as Dispositivo
     participant F as Frontend
     participant B as Backend
-    alt BLE
-    U ->> E: Configuração Wi-Fi (SSID, Senha)
-    end
     E ->> BR: Handshake
     BR ->> B: Auth
     BR ->> E: ACK
-    alt BLE
-    E ->> U: Sucesso
-    end
     loop Depois de configurado
-    U ->> F: Botão (liga, desliga, etc.)
-    F ->> B: POST JSON
+    F ->> B: POST JSON (liga, desliga, etc.)
     B ->> BR: Mensagem
     BR ->> E: Comandos (liga, desliga, etc.)
     E ->> BR: Sucesso/Erro
@@ -81,7 +96,9 @@ sequenceDiagram
     B ->> F: Status
     end
 ```
+
 ## Hardware
+
 - ESP32C3
 - Trocar MCU interno por um próprio
   - o interno é Bekken (ultra dificil de usar)
@@ -93,7 +110,7 @@ sequenceDiagram
 
 | Tarefa               | Status |
 |----------------------|:------:|
-| Wi-Fi                |   🚧   |
-| BLE                  |   🚧   |
-| Controle de hardware |   ❌   |
+| Wi-Fi                |   ✅   |
+| BLE                  |   ❌   |
+| Controle de hardware |   ✅   |
 | Montagem             |   ❌   |

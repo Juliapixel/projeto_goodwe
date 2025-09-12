@@ -6,6 +6,7 @@
     holding buffers for the duration of a data transfer."
 )]
 
+#[cfg(feature = "ble")]
 use bt_hci::controller::ExternalController;
 use defmt::{Format, info, write};
 use embassy_executor::Spawner;
@@ -13,10 +14,14 @@ use embassy_net::StackResources;
 use esp_hal::clock::CpuClock;
 use esp_hal::timer::timg::TimerGroup;
 use esp_wifi::EspWifiController;
+#[cfg(feature = "ble")]
 use esp_wifi::ble::controller::BleConnector;
 use esp_wifi::wifi::WifiDevice;
-use goodwe_plug::App;
+#[cfg(feature = "ble")]
+use goodwe_plug::BleHandler;
+use goodwe_plug::{App, WifiHandler};
 use static_cell::StaticCell;
+#[cfg(feature = "ble")]
 use trouble_host::{Address, HostResources, prelude::DefaultPacketPool};
 use {esp_backtrace as _, esp_println as _};
 
@@ -71,14 +76,19 @@ async fn main(_spawner: Spawner) {
         MacAddressFmt(interfaces.sta.mac_address())
     );
 
+    #[cfg(feature = "ble")]
     let transport = BleConnector::new(wifi_init, peripherals.BT);
+    #[cfg(feature = "ble")]
     let ble_controller = ExternalController::<_, 20>::new(transport);
 
+    #[cfg(feature = "ble")]
     let mut hr = HostResources::<DefaultPacketPool, 1, 2>::new();
+    #[cfg(feature = "ble")]
     let ble_stack = trouble_host::new(ble_controller, &mut hr)
         .set_random_address(Address::random(interfaces.sta.mac_address()))
         .set_random_generator_seed(&mut rng);
 
+    #[cfg(feature = "ble")]
     let ble_host = ble_stack.build();
 
     let mut stack_resources = StackResources::new();
@@ -88,11 +98,14 @@ async fn main(_spawner: Spawner) {
         peripherals.GPIO5,
         peripherals.GPIO6,
         peripherals.GPIO7,
-        wifi_controller,
-        interfaces.sta,
-        &mut stack_resources,
-        ble_host,
-        rng.random() as u64 | ((rng.random() as u64) << 32),
+        WifiHandler::new(
+            wifi_controller,
+            interfaces.sta,
+            &mut stack_resources,
+            rng.random() as u64 | ((rng.random() as u64) << 32),
+        ),
+        #[cfg(feature = "ble")]
+        BleHandler::new(ble_host),
     );
 
     app.run().await;

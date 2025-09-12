@@ -16,7 +16,7 @@ bench = false
 path = "./src/bin/main.rs"
 
 [dependencies]
-common = { path = "../common", default-features = false, features = ["no_std"]}
+common = { path = "../common", default-features = false, features = ["defmt"]}
 
 defmt                  = "1.0.1"
 esp-bootloader-esp-idf = { version = "0.2.0", features = ["esp32c3"] }
@@ -41,7 +41,7 @@ esp-backtrace = { version = "0.17.0", features = [
 ] }
 esp-println = { version = "0.15.0", features = ["defmt-espflash", "esp32c3"] }
 # for more networking protocol support see https://crates.io/crates/edge-net
-bt-hci = { version = "0.3", features = [] }
+bt-hci = { version = "0.3", optional = true }
 critical-section = "1.2.0"
 embassy-executor = { version = "0.7.0", features = [
   "defmt",
@@ -50,9 +50,7 @@ embassy-executor = { version = "0.7.0", features = [
 embassy-time = { version = "0.4.0", features = ["defmt"] }
 esp-hal-embassy = { version = "0.9.0", features = ["defmt", "esp32c3"] }
 esp-wifi = { version = "0.15.0", features = [
-  "ble",
   "builtin-scheduler",
-  "coex",
   "defmt",
   "esp-alloc",
   "esp32c3",
@@ -73,7 +71,7 @@ smoltcp = { version = "0.12.0", default-features = false, features = [
   "socket-udp",
 ] }
 static_cell = "2.1.1"
-trouble-host = { version = "0.2.0", features = ["gatt", "default-packet-pool-mtu-255", "defmt"] }
+trouble-host = { version = "0.2.0", features = ["gatt", "default-packet-pool-mtu-255", "defmt"], optional = true }
 futures-core = { version = "0.3.31", default-features = false }
 futures = { version = "0.3.31", default-features = false }
 heapless = "0.9.1"
@@ -102,6 +100,7 @@ uuid = { version = "1.18.0", default-features = false }
 [features]
 default = ["security"]
 security = ["trouble-host/security"]
+ble = ["esp-wifi/ble", "esp-wifi/coex", "dep:bt-hci", "dep:trouble-host"]
 
 [profile.dev.package.esp-wifi]
 opt-level = 3
