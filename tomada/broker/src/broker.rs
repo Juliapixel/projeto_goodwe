@@ -112,9 +112,10 @@ impl Broker {
                     addr,
                     self.shared_state.clone(),
                 ));
-            } else if let Some(conn) = self.sessions.get(&addr) {
-                conn.send(msg).await.unwrap();
-            }
+            } else if let Some(conn) = self.sessions.get(&addr)
+                && let Err(_e) = conn.send(msg).await {
+                    self.sessions.remove(&addr);
+                }
         }
     }
 }
