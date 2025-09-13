@@ -2,13 +2,14 @@ FROM --platform=$BUILDPLATFORM rust:1.89-bookworm AS build
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 WORKDIR /build
-COPY . .
 
 RUN if [ "${TARGETPLATFORM}" = "linux/arm64" ]; then apt update && apt install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross; fi;
 
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 ENV CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
 ENV CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
+
+COPY . .
 
 RUN --mount=type=cache,target=./target/,id=${TARGETPLATFORM} \
     --mount=type=cache,target=/usr/local/cargo/registry/ \
