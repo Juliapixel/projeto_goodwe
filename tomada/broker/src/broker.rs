@@ -199,7 +199,7 @@ impl BrokerConnection {
                         return Err(ConnectionError::Dead);
                     }
                     Err(_timeout) => {
-                        info!("Message receiving timed out");
+                        debug!("Message receiving timed out");
                         self.feed_msg(None).await
                     },
                 }
@@ -305,7 +305,8 @@ impl BrokerConnection {
                 }
             }
             (Some(Mp::Pong { data: _ }), _) => dc!(Dr::ProtocolError),
-            (Some(Mp::TurnOffAck), _) => {
+            (Some(Mp::TurnOffAck), _)
+            | (Some(Mp::TurnOffNotify), _) => {
                 self.get_state_mut().unwrap().power_state = crate::PowerState::Off;
                 for t in self
                     .tasks
@@ -315,7 +316,8 @@ impl BrokerConnection {
                 }
                 ok!()
             }
-            (Some(Mp::TurnOnAck), _) => {
+            (Some(Mp::TurnOnAck), _)
+            | (Some(Mp::TurnOnNotify), _) => {
                 self.get_state_mut().unwrap().power_state = crate::PowerState::On;
                 for t in self
                     .tasks

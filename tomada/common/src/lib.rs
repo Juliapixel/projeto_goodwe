@@ -24,9 +24,11 @@ pub enum MessagePayload {
     /// Request from broker to turn plug on
     TurnOn,
     TurnOnAck,
+    TurnOnNotify,
     /// Request from broker to turn plug off
     TurnOff,
     TurnOffAck,
+    TurnOffNotify,
     /// Request from broker to query plug status
     QueryStatus,
     StatusResp {
@@ -49,8 +51,10 @@ impl defmt::Format for MessagePayload {
             MessagePayload::Pong { data } => defmt::write!(fmt, "Pong {{ data: {} }}", data),
             MessagePayload::TurnOn => defmt::write!(fmt, "TurnOn"),
             MessagePayload::TurnOnAck => defmt::write!(fmt, "TurnOnAck"),
+            MessagePayload::TurnOnNotify => defmt::write!(fmt, "TurnOnNotify"),
             MessagePayload::TurnOff => defmt::write!(fmt, "TurnOff"),
             MessagePayload::TurnOffAck => defmt::write!(fmt, "TurnOffAck"),
+            MessagePayload::TurnOffNotify => defmt::write!(fmt, "TurnOffNotify"),
             MessagePayload::QueryStatus => defmt::write!(fmt, "QueryStatus"),
             MessagePayload::StatusResp { is_on } => {
                 defmt::write!(fmt, "StatusResp {{ is_on: {} }}", is_on)
