@@ -218,15 +218,14 @@ async fn button_task(pin: &mut Input<'_>) {
             continue;
         } else if level == BUTTON_PRESSED_LEVEL {
             sender.send(ButtonEvent::Press);
-            let rmode = match RELAY_STATUS.try_get().unwrap_or(RelayMode::Open) {
-                RelayMode::Open => RelayMode::Closed,
-                RelayMode::Closed => RelayMode::Open,
+            let (rmode, lmode) = match RELAY_STATUS.try_get().unwrap_or(RelayMode::Open) {
+                RelayMode::Open => (RelayMode::Closed, PlugLedMode::On),
+                RelayMode::Closed => (RelayMode::Open, PlugLedMode::Off),
             };
             RELAY_SIGNAL.signal(rmode);
-            PLUG_LED_SIGNAL.signal(PlugLedMode::On);
+            PLUG_LED_SIGNAL.signal(lmode);
         } else {
             sender.send(ButtonEvent::Release);
-            PLUG_LED_SIGNAL.signal(PlugLedMode::Off);
         }
         prev_level = level;
     }
