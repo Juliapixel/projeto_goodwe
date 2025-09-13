@@ -95,9 +95,9 @@ async fn main(_spawner: Spawner) {
 
     let app = App::new(
         peripherals.GPIO8,
-        peripherals.GPIO5,
-        peripherals.GPIO6,
-        peripherals.GPIO7,
+        peripherals.GPIO10,
+        peripherals.GPIO21,
+        peripherals.GPIO20,
         WifiHandler::new(
             wifi_controller,
             interfaces.sta,

@@ -21,14 +21,13 @@ use embassy_sync::{
     watch::Receiver,
 };
 use embassy_time::{Duration, TimeoutError, Timer, WithTimeout};
-use esp_hal::gpio::Level;
 use esp_wifi::wifi::{
     ClientConfiguration, ScanConfig, WifiController, WifiDevice, WifiError, WifiEvent,
 };
 use futures::FutureExt;
 
 use crate::{
-    RELAY_SIGNAL, RELAY_STATUS,
+    RELAY_SIGNAL, RELAY_STATUS, RelayMode,
     status_led::{LED_STATUS, LedStatusCode},
 };
 
@@ -87,6 +86,12 @@ impl<'a> WifiHandler<'a> {
 
         controller.start_async().await?;
         info!("[wifi] Starting controller");
+
+        // Safety: safe to call with valid value 8
+        // idk where i saw this but thank you to whoever suggested lowering tx power
+        unsafe {
+            esp_wifi_sys::include::esp_wifi_set_max_tx_power(8);
+        }
 
         controller.is_started()?;
 
@@ -231,7 +236,7 @@ struct Client<'a> {
     state: ConnState,
     addr: SocketAddrV4,
     socket: UdpSocket<'a>,
-    relay_state: Receiver<'static, CriticalSectionRawMutex, Level, 4>,
+    relay_state: Receiver<'static, CriticalSectionRawMutex, RelayMode, 4>,
 }
 
 impl<'a> Client<'a> {
@@ -378,16 +383,19 @@ impl<'a> Client<'a> {
             (Some(Mp::Pong { data: _ }), _) => dc!(Dr::ProtocolError),
             (Some(Mp::TurnOff), _) => {
                 info!("[broker] Broker requested TurnOff");
-                RELAY_SIGNAL.signal(Level::Low);
+                RELAY_SIGNAL.signal(RelayMode::Open);
                 ok!(Mp::TurnOffAck)
             }
             (Some(Mp::TurnOn), _) => {
                 info!("[broker] Broker requested TurnOn");
-                RELAY_SIGNAL.signal(Level::High);
+                RELAY_SIGNAL.signal(RelayMode::Closed);
                 ok!(Mp::TurnOnAck)
             }
             (Some(Mp::QueryStatus), _) => {
-                let is_on = self.relay_state.try_get().is_some_and(|l| l == Level::High);
+                let is_on = self
+                    .relay_state
+                    .try_get()
+                    .is_some_and(|l| l == RelayMode::Closed);
                 ok!(Mp::StatusResp { is_on })
             }
             (Some(m), S::Working) => {

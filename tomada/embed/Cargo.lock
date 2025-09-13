@@ -1179,6 +1179,7 @@ dependencies = [
  "esp-hal-embassy",
  "esp-println",
  "esp-wifi",
+ "esp-wifi-sys",
  "futures",
  "futures-core",
  "heapless 0.9.1",

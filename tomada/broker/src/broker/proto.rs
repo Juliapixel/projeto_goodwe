@@ -46,7 +46,11 @@ impl Decoder for BrokerCodec {
         &mut self,
         src: &mut tokio_util::bytes::BytesMut,
     ) -> Result<Option<Self::Item>, Self::Error> {
+        if src.is_empty() {
+            return Ok(None);
+        }
         let msg = postcard::from_bytes::<common::PlugMessage>(src).unwrap();
+        src.clear();
         Ok(Some(msg))
     }
 }

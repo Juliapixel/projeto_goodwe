@@ -100,6 +100,7 @@ impl Broker {
 
         loop {
             let (msg, addr) = self.stream.next().await.unwrap().unwrap();
+            tracing::debug!("Received {msg:?} from {addr}");
             if matches!(msg.payload, MessagePayload::Conn { id: _ }) {
                 let (tx, rx) = channel(16);
                 tx.send(msg).await.unwrap();
@@ -374,8 +375,9 @@ impl std::error::Error for ConnectionError {}
 
 impl Drop for BrokerConnection {
     fn drop(&mut self) {
-        if let Some(plug_id) = &self.plug_id {
-            self.shared_state.plugs.remove(plug_id);
-        }
+        // race condition pinto cu bosta mijo
+        // if let Some(plug_id) = &self.plug_id {
+        //     self.shared_state.plugs.remove(plug_id);
+        // }
     }
 }
