@@ -30,7 +30,16 @@
                     <a href='/index.html'>
                         <i class="fa-solid fa-charging-station"></i>
                         <span class="item_description">
-                            economia de energia
+                            Economia de energia
+                        </span>
+                    </a>
+                </li>
+                
+                <li class="side-item active">
+                    <a href='/painel.html'>
+                        <i class="fa-solid fa-gamepad"></i>
+                        <span class="item_description">
+                            Painel de controle
                         </span>
                     </a>
                 </li>
@@ -38,7 +47,7 @@
                     <a href='/placas.html'>
                         <i class="fa-solid fa-solar-panel"></i>
                         <span class="item_description">
-                            placas solares
+                            Placas solares
                         </span>
                     </a>
                 </li>
@@ -46,7 +55,7 @@
                     <a href='/dados.html'>
                         <i class="fa-solid fa-chart-simple"></i>
                         <span class="item_description">
-                            dados gerais
+                            Dados gerais
                         </span>
                     </a>
                 </li>
@@ -54,7 +63,7 @@
                     <a href='/config.html'>
                         <i class="fa-solid fa-gears"></i>
                         <span class="item_description">
-                            configuraçoes
+                            Configurações
                         </span>
                     </a>
                 </li>
@@ -76,37 +85,105 @@
     </nav>
     
     <main class="conteudo">
-        <div id="search_box">
-            <i class="fa-solid fa-robot"></i>
-            <input type="text" placeholder="Digite sua pergunta..." />
-        <button>Enviar</button>
-        </div>
 
         <section class="box">  
             <h1>
                 Dados gerais
             </h1>
-            <p> Lorem ipsum dolor sit amet consectetur adipisicing elit. Fuga, eligendi dicta molestias adipisci recusandae magni quo dignissimos velit maiores quos explicabo consectetur saepe laboriosam sequi doloremque doloribus mollitia ratione esse! </p>
-            <canvas id="meuGrafico"></canvas>
-            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-            <script>
-        const ctx = document.getElementById('meuGrafico').getContext('2d');
-        const meuGrafico = new Chart(ctx, {
-        type: 'bar',
-        data: {
-        labels: ['Janeiro', 'Fevereiro', 'Março'],
-        datasets: [{
-        label: 'Vendas',
-        data: [12, 19, 3],
-        backgroundColor: 'red'
-            }]
-        }
-    });
-</script>
+            <p> Lorem ipsum dolor sit amet consectetur adipisicing elit. Cumque tempora ab quasi dolorem itaque officiis aut dignissimos eveniet nihil, facilis quaerat, consectetur corporis. Sequi tenetur sapiente ea illo incidunt minima.</p>
+            <ul id="dados_gerais_lista"> 
+                <li class="dados_gerais_item"><h3>Consumo atual </h3> 
+                <canvas id="graficoConsumo"></canvas>
+                </li>
+                    <p> </p>
+                <li class="dados_gerais_item"> <h3>Produção atual</h3>
+                <canvas id="graficoProducao"></canvas> </li>
+                <li class="dados_gerais_item"><h3>Carga da bateria</h3>
+                    <p> Lorem ipsum dolor sit amet consectetur adipisicing elit. Facere, qui. Adipisci, itaque velit fugit repellat dolor nesciunt laboriosam? Ex doloremque consequatur saepe odio eveniet dolor impedit. Nihil cupiditate sit vitae.</p>
+                <div class="bateria-container">
+                    <div class="bateria">
+                        <div class="nivel" id="nivelBateria"></div>
+                    </div>
+                <span id="porcentagemBateria"></span>
+                </div>
+                </li>
+            </ul>
+                    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+        <script>
+        document.addEventListener('DOMContentLoaded', () => {
+        // Valores simulados (trocar pelos dados reais)
+        const consumoAtual = 3.5; // kWh
+        const producaoAtual = 2.0; // kWh
+        const porcentagemBateria = 60; // %
+
+        // Gráfico de Consumo Atual
+            new Chart(document.getElementById('graficoConsumo').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ['Consumo Atual'],
+                datasets: [{
+                label: 'kWh',
+                data: [consumoAtual],
+                backgroundColor: 'rgba(255, 0, 0, 0.7)',
+                borderColor: 'rgba(255, 0, 0, 0.7)',
+                borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { 
+                    y: { 
+                        max: 5, 
+                        beginAtZero: true } }
+                }
+            });
+
+        // Gráfico de Produção
+            new Chart(document.getElementById('graficoProducao').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ['Produção '],
+                datasets: [{
+                label: 'kWh',
+                data: [producaoAtual],
+                backgroundColor: 'rgba(255, 0, 0, 0.7)',
+                borderColor: 'rgba(255, 0, 0, 0.7)',
+                borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { 
+                    y: { 
+                        max: 5,
+                        beginAtZero: true } }
+                }
+            });
+
+        // Indicador de bateria
+            const nivelBateria = document.getElementById('nivelBateria');
+            const textoBateria = document.getElementById('porcentagemBateria');
+
+            nivelBateria.style.width = porcentagemBateria + '%';
+            textoBateria.textContent = porcentagemBateria + '%';
+
+        // Muda cor conforme nível
+            if (porcentagemBateria > 60) {
+            nivelBateria.style.backgroundColor = 'rgba(0, 180, 0, 0.7)';
+            } else if (porcentagemBateria > 30) {
+            nivelBateria.style.backgroundColor = 'rgba(255, 165, 0, 0.7)';
+            } else {
+            nivelBateria.style.backgroundColor = 'rgba(255, 0, 0, 0.7)';
+            }
+        });
+        </script>
         </section>
     </main>
-    </div>
+    </div> 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/javascript/script.js"></script>
 </body>
 </html>

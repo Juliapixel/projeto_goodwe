@@ -34,6 +34,14 @@
                     </a>
                 </li>
                 <li class="side-item active">
+                    <a href='/painel.html'>
+                        <i class="fa-solid fa-gamepad"></i>
+                        <span class="item_description">
+                            Painel de controle
+                        </span>
+                    </a>
+                </li>
+                <li class="side-item active">
                     <a href='/placas.html'>
                         <i class="fa-solid fa-solar-panel"></i>
                         <span class="item_description">
@@ -73,12 +81,7 @@
     </nav>
     
     <main class="conteudo">
-        <div id="search_box">
-            <i class="fa-solid fa-robot"></i>
-            <input type="text" placeholder="Digite sua pergunta..." />
-        <button>Enviar</button>
-        </div>
-
+        
         <section class="box">  
             <h1>
                 Economia de energia
@@ -89,13 +92,13 @@
             <input type="checkbox" id="modoEconomia" onchange="toggleModo()">
             <span class="slider"></span>
             </label>
-            <ul>
+            <ul id="economia_energia_lista">
                 <li> 
                     <h3> Gráfico de economia mensal </h3>
                     <p> Lorem ipsum dolor sit amet consectetur adipisicing elit. Modi maxime ad quo sit. Suscipit, fuga fugit reiciendis minus libero minima sed, voluptates dolorum in aperiam perspiciatis, excepturi non maxime id.
                     </p>
                 </li>
-            </ul>
+            
             
             <canvas id="graficoEconomia"></canvas>
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -146,7 +149,7 @@
     }
 });
         </script>
-        <ul>
+        
             <li> 
                 <h3> Gráfico de economia diária </h3>
                 <p> Lorem ipsum dolor sit amet consectetur adipisicing elit. Illum reiciendis nostrum aliquid veritatis voluptatem commodi reprehenderit inventore, eveniet et suscipit explicabo voluptates, esse iure nihil dolore alias. Praesentium, possimus itaque?</p>
@@ -202,7 +205,6 @@ const graficoHorario = new Chart(ctxHorario, {
     </section>
     </main>
     </div>
-    
-    <script src="/projeto_goodwe/frontend/javascript/script.js"></script>
+    <script src="/javascript/script.js"></script>
 </body>
 </html>
