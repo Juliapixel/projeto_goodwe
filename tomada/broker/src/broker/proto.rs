@@ -49,7 +49,14 @@ impl Decoder for BrokerCodec {
         if src.is_empty() {
             return Ok(None);
         }
-        let msg = postcard::from_bytes::<common::PlugMessage>(src).unwrap();
+        let msg = match postcard::from_bytes::<common::PlugMessage>(src) {
+            Ok(m) => m,
+            Err(e) => {
+                src.clear();
+                tracing::warn!("Deserialization error: {e}");
+                return Err(e.into())
+            },
+        };
         src.clear();
         Ok(Some(msg))
     }
