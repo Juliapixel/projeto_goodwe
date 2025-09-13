@@ -452,6 +452,8 @@ async fn broker_task(stack: Stack<'_>) -> ! {
     let broker_ip = Ipv4Addr::from_str(BROKER_IP).unwrap();
     let broker_port = BROKER_PORT.parse::<u16>().unwrap();
 
+    info!("[broker] Starting new connection to {}:{}", broker_ip, broker_port);
+
     let mut client = Client::new(SocketAddrV4::new(broker_ip, broker_port), sock);
     client.run().await;
 }
