@@ -8,7 +8,6 @@
 
 #[cfg(feature = "ble")]
 use bt_hci::controller::ExternalController;
-use defmt::{Format, info, write};
 use embassy_executor::Spawner;
 use embassy_net::StackResources;
 use esp_hal::clock::CpuClock;
@@ -19,11 +18,19 @@ use esp_wifi::ble::controller::BleConnector;
 use esp_wifi::wifi::WifiDevice;
 #[cfg(feature = "ble")]
 use goodwe_plug::BleHandler;
-use goodwe_plug::{App, WifiHandler};
+use goodwe_plug::{App, WifiHandler, info};
 use static_cell::StaticCell;
 #[cfg(feature = "ble")]
 use trouble_host::{Address, HostResources, prelude::DefaultPacketPool};
+
+#[cfg(feature = "defmt")]
 use {esp_backtrace as _, esp_println as _};
+
+#[cfg(not(feature = "defmt"))]
+#[panic_handler]
+fn panic_handler(_: &core::panic::PanicInfo) -> ! {
+    esp_hal::system::software_reset()
+}
 
 extern crate alloc;
 
@@ -33,12 +40,18 @@ esp_bootloader_esp_idf::esp_app_desc!();
 
 struct MacAddressFmt([u8; 6]);
 
-impl Format for MacAddressFmt {
+#[cfg(feature = "defmt")]
+impl defmt::Format for MacAddressFmt {
     fn format(&self, fmt: defmt::Formatter) {
-        write!(
+        defmt::write!(
             fmt,
             "{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
-            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5]
+            self.0[0],
+            self.0[1],
+            self.0[2],
+            self.0[3],
+            self.0[4],
+            self.0[5]
         )
     }
 }
@@ -95,9 +108,9 @@ async fn main(_spawner: Spawner) {
 
     let app = App::new(
         peripherals.GPIO8,
-        peripherals.GPIO5,
-        peripherals.GPIO6,
-        peripherals.GPIO7,
+        peripherals.GPIO10,
+        peripherals.GPIO21,
+        peripherals.GPIO20,
         WifiHandler::new(
             wifi_controller,
             interfaces.sta,

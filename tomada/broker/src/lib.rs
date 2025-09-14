@@ -19,6 +19,7 @@ use uuid::Uuid;
 pub struct PlugId(Uuid);
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum PowerState {
     On,
     Off,
@@ -30,6 +31,7 @@ pub enum PowerState {
 pub enum PlugCommand {
     TurnOn,
     TurnOff,
+    QueryState,
 }
 
 #[derive(Debug)]

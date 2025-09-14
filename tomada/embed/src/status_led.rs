@@ -10,11 +10,11 @@ pub struct StatusLed<'a> {
     led: NoopMutex<Output<'a>>,
 }
 
-#[derive(Debug, Clone, Copy, Default, defmt::Format)]
+#[derive(Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum LedStatusCode {
     Disconnected,
     Connecting,
-    Pairing,
     Working,
     #[default]
     Idle,
@@ -53,12 +53,6 @@ impl<'a> StatusLed<'a> {
             }
             LedStatusCode::Connecting => {
                 self.short_blink().await;
-            }
-            LedStatusCode::Pairing => {
-                self.set_onboard_led(Level::Low);
-                Timer::after_millis(500).await;
-                self.set_onboard_led(Level::High);
-                Timer::after_millis(500).await;
             }
             LedStatusCode::Idle => {
                 self.set_onboard_led(Level::High);

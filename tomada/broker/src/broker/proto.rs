@@ -46,7 +46,18 @@ impl Decoder for BrokerCodec {
         &mut self,
         src: &mut tokio_util::bytes::BytesMut,
     ) -> Result<Option<Self::Item>, Self::Error> {
-        let msg = postcard::from_bytes::<common::PlugMessage>(src).unwrap();
+        if src.is_empty() {
+            return Ok(None);
+        }
+        let msg = match postcard::from_bytes::<common::PlugMessage>(src) {
+            Ok(m) => m,
+            Err(e) => {
+                src.clear();
+                tracing::warn!("Deserialization error: {e}");
+                return Err(e.into());
+            }
+        };
+        src.clear();
         Ok(Some(msg))
     }
 }

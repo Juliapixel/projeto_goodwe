@@ -36,11 +36,39 @@ pub async fn query_status(
     State(s): State<SharedState>,
     Query(params): Query<QueryStatusParams>,
 ) -> Json<QueryStatusResponse> {
-    if let Some(status) = s.plugs.get(&params.id) {
-        Json(QueryStatusResponse {
-            state: Some(status.power_state),
-            lastseen: Some(status.last_seen),
-        })
+    if let Some(plug) = s.plugs.get(&params.id) {
+        if plug.power_state == PowerState::Unknown {
+            let (task, rx) = PlugTask::new(PlugCommand::QueryState);
+            let _ = timeout(Duration::from_secs(10), async {
+                let sent = plug.task_tx.send(task).await.is_ok();
+                // avoids deadlocking
+                drop(plug);
+                if !sent {
+                    tracing::warn!("Sending task to plug failed");
+                    false
+                } else {
+                    match rx.await {
+                        Ok(b) => b,
+                        Err(_) => {
+                            tracing::warn!("task dropped by plug");
+                            false
+                        }
+                    }
+                }
+            })
+            .await
+            .is_ok_and(|i| i);
+        }
+        match s.plugs.get(&params.id) {
+            Some(status) => Json(QueryStatusResponse {
+                state: Some(status.power_state),
+                lastseen: Some(status.last_seen),
+            }),
+            None => Json(QueryStatusResponse {
+                state: None,
+                lastseen: None,
+            }),
+        }
     } else {
         Json(QueryStatusResponse {
             state: None,
@@ -95,9 +123,16 @@ pub async fn set_state(
             // avoids deadlocking
             drop(plug);
             if !sent {
+                tracing::warn!("Sending task to plug failed");
                 false
             } else {
-                rx.await.is_ok_and(|i| i)
+                match rx.await {
+                    Ok(b) => b,
+                    Err(_) => {
+                        tracing::warn!("task dropped by plug");
+                        false
+                    }
+                }
             }
         })
         .await

@@ -16,49 +16,20 @@ bench = false
 path = "./src/bin/main.rs"
 
 [dependencies]
-common = { path = "../common", default-features = false, features = ["defmt"]}
+common = { path = "../common", default-features = false }
 
-defmt                  = "1.0.1"
+defmt = { version = "1.0.1", optional = true }
 esp-bootloader-esp-idf = { version = "0.2.0", features = ["esp32c3"] }
-esp-hal                = { version = "=1.0.0-rc.0", features = ["defmt", "esp32c3", "unstable"] }
+esp-hal = { version = "=1.0.0-rc.0", features = ["esp32c3", "unstable"] }
 
 embassy-net = { version = "0.7.0", features = [
-  "defmt",
   "dhcpv4",
   "medium-ethernet",
   "dns",
   "tcp",
   "udp",
 ] }
-embedded-io = { version = "0.6.1", features = ["defmt-03"] }
-embedded-io-async = { version = "0.6.1", features = ["defmt-03"] }
-esp-alloc = { version = "0.8.0", features = ["defmt"] }
-esp-backtrace = { version = "0.17.0", features = [
-  "defmt",
-  "esp32c3",
-  "exception-handler",
-  "panic-handler",
-] }
-esp-println = { version = "0.15.0", features = ["defmt-espflash", "esp32c3"] }
-# for more networking protocol support see https://crates.io/crates/edge-net
-bt-hci = { version = "0.3", optional = true }
-critical-section = "1.2.0"
-embassy-executor = { version = "0.7.0", features = [
-  "defmt",
-  "task-arena-size-20480",
-] }
-embassy-time = { version = "0.4.0", features = ["defmt"] }
-esp-hal-embassy = { version = "0.9.0", features = ["defmt", "esp32c3"] }
-esp-wifi = { version = "0.15.0", features = [
-  "builtin-scheduler",
-  "defmt",
-  "esp-alloc",
-  "esp32c3",
-  "smoltcp",
-  "wifi",
-] }
 smoltcp = { version = "0.12.0", default-features = false, features = [
-  "defmt",
   "medium-ethernet",
   "multicast",
   "proto-dhcpv4",
@@ -70,22 +41,53 @@ smoltcp = { version = "0.12.0", default-features = false, features = [
   "socket-tcp",
   "socket-udp",
 ] }
-static_cell = "2.1.1"
-trouble-host = { version = "0.2.0", features = ["gatt", "default-packet-pool-mtu-255", "defmt"], optional = true }
-futures-core = { version = "0.3.31", default-features = false }
-futures = { version = "0.3.31", default-features = false }
-heapless = "0.9.1"
+esp-wifi = { version = "0.15.0", features = [
+  "builtin-scheduler",
+  "esp-alloc",
+  "esp32c3",
+  "smoltcp",
+  "wifi",
+] }
+esp-wifi-sys = { version = "0.7.1", features = ["esp32c3"] }
+
+bt-hci = { version = "0.3", optional = true }
+trouble-host = { version = "0.2.0", features = ["gatt", "default-packet-pool-mtu-255"], optional = true }
+
+embedded-io = { version = "0.6.1" }
+embedded-io-async = { version = "0.6.1" }
 embedded-hal = "1.0.0"
 embedded-hal-async = "1.0.0"
+
+esp-alloc = { version = "0.8.0" }
+esp-backtrace = { version = "0.17.0", features = [
+  "esp32c3",
+  "exception-handler",
+  "panic-handler",
+], optional = true }
+esp-println = { version = "0.15.0", features = ["esp32c3"] }
+esp-hal-embassy = { version = "0.9.0", features = ["esp32c3"] }
+
+
+embassy-executor = { version = "0.7.0", features = [
+  "task-arena-size-20480",
+] }
+embassy-time = { version = "0.4.0" }
+embassy-futures = "0.1.2"
+embassy-sync = { version = "0.7.2" }
+static_cell = "2.1.1"
+heapless = "0.9.1"
+
+critical-section = "1.2.0"
 portable_atomic_enum = "0.3.1"
 portable-atomic = "1.11.1"
-embassy-sync = { version = "0.7.2", features = ["defmt"] }
-postcard = { version = "1.1.3", features = ["use-defmt"] }
-dotenvy_macro = "0.15.7"
-embassy-futures = "0.1.2"
+
+futures-core = { version = "0.3.31", default-features = false }
+futures = { version = "0.3.31", default-features = false }
+
+postcard = { version = "1.1.3" }
 uuid = { version = "1.18.0", default-features = false }
 
-# esp-preempt = { git = "https://github.com/esp-rs/esp-hal.git", version = "0.0.1", features = ["esp32c3"] }
+dotenvy_macro = "0.15.7"
 
 [patch.crates-io]
 # trouble-host = { git = "https://github.com/embassy-rs/trouble.git" }
@@ -99,6 +101,27 @@ uuid = { version = "1.18.0", default-features = false }
 
 [features]
 default = ["security"]
+defmt = [
+    "dep:defmt",
+    "dep:esp-backtrace",
+    "common/defmt",
+    "esp-hal/defmt",
+    "embassy-net/defmt",
+    "embedded-io/defmt-03",
+    "embedded-io-async/defmt-03",
+    "esp-alloc/defmt",
+    "esp-backtrace/defmt",
+    "esp-println/defmt-espflash",
+    "embassy-executor/defmt",
+    "embassy-time/defmt",
+    "esp-hal-embassy/defmt",
+    "esp-wifi/defmt",
+    "esp-wifi-sys/defmt",
+    "smoltcp/defmt",
+    "trouble-host/defmt",
+    "embassy-sync/defmt",
+    "postcard/use-defmt",
+]
 security = ["trouble-host/security"]
 ble = ["esp-wifi/ble", "esp-wifi/coex", "dep:bt-hci", "dep:trouble-host"]
 
@@ -118,6 +141,6 @@ codegen-units    = 1     # LLVM can perform better optimizations using a single 
 debug            = 2
 debug-assertions = false
 incremental      = false
-# lto              = 'fat'
+lto              = 'fat'
 opt-level        = 's'
 overflow-checks  = false

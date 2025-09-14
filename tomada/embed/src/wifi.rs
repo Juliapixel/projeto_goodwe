@@ -5,11 +5,11 @@ use core::{
     str::FromStr,
 };
 
+use crate::{debug, error, info, warn};
 use alloc::string::String;
 use common::{DisconnectReason, MessagePayload, PlugMessage};
-use defmt::{debug, error, info, warn};
 use dotenvy_macro::dotenv;
-use embassy_futures::select::{select, select3};
+use embassy_futures::select::{Either, select, select3};
 use embassy_net::{
     Config, DhcpConfig, IpListenEndpoint, Runner, Stack, StackResources,
     udp::{PacketMetadata, RecvError, SendError, UdpSocket},
@@ -18,17 +18,16 @@ use embassy_sync::{
     blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
     lazy_lock::LazyLock,
     mutex::Mutex,
-    watch::Receiver,
+    watch::{Receiver, Watch},
 };
 use embassy_time::{Duration, TimeoutError, Timer, WithTimeout};
-use esp_hal::gpio::Level;
 use esp_wifi::wifi::{
     ClientConfiguration, ScanConfig, WifiController, WifiDevice, WifiError, WifiEvent,
 };
 use futures::FutureExt;
 
 use crate::{
-    RELAY_SIGNAL, RELAY_STATUS,
+    RELAY_SIGNAL, RELAY_STATUS, RelayMode,
     status_led::{LED_STATUS, LedStatusCode},
 };
 
@@ -88,6 +87,12 @@ impl<'a> WifiHandler<'a> {
         controller.start_async().await?;
         info!("[wifi] Starting controller");
 
+        // Safety: safe to call with valid value 8
+        // idk where i saw this but thank you to whoever suggested lowering tx power
+        unsafe {
+            esp_wifi_sys::include::esp_wifi_set_max_tx_power(8);
+        }
+
         controller.is_started()?;
 
         for ap in controller
@@ -97,7 +102,7 @@ impl<'a> WifiHandler<'a> {
             })
             .await?
         {
-            defmt::debug!("[wifi] Found AP ({}dBm): {}", ap.signal_strength, &*ap.ssid);
+            debug!("[wifi] Found AP ({}dBm): {}", ap.signal_strength, &*ap.ssid);
         }
 
         controller.set_configuration(&esp_wifi::wifi::Configuration::Client(
@@ -124,7 +129,7 @@ impl<'a> WifiHandler<'a> {
         loop {
             let mut delay = 1000;
             while let Err(e) = self.connect(SSID, Some(PASSWORD)).await {
-                defmt::error!("[wifi] Connection failed, retrying in {}ms: {}", delay, e);
+                error!("[wifi] Connection failed, retrying in {}ms: {}", delay, e);
                 Timer::after_millis(delay).await;
                 delay = core::cmp::min(delay * 2, 10000);
             }
@@ -177,7 +182,8 @@ impl<'a> WifiHandler<'a> {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, defmt::Format)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 enum ConnState {
     Working,
     Connecting,
@@ -187,7 +193,8 @@ enum ConnState {
 
 const SEND_TIMEOUT: Duration = Duration::from_secs(5);
 
-#[derive(Debug, Clone, defmt::Format)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 enum ConnError {
     NoRoute,
     PacketTooLarge,
@@ -231,8 +238,10 @@ struct Client<'a> {
     state: ConnState,
     addr: SocketAddrV4,
     socket: UdpSocket<'a>,
-    relay_state: Receiver<'static, CriticalSectionRawMutex, Level, 4>,
+    relay_state: Receiver<'static, CriticalSectionRawMutex, RelayMode, 4>,
 }
+
+pub static WIFI_MSG_CHANNEL: Watch<CriticalSectionRawMutex, MessagePayload, 1> = Watch::new();
 
 impl<'a> Client<'a> {
     fn new(addr: SocketAddrV4, socket: UdpSocket<'a>) -> Self {
@@ -273,7 +282,7 @@ impl<'a> Client<'a> {
         self.send(MessagePayload::Disconnect { reason }).await
     }
 
-    pub async fn recv(&mut self) {
+    pub async fn recv(&mut self) -> ControlFlow<DisconnectReason, Option<MessagePayload>> {
         let mut buf = [0u8; 512];
         let rcv = self
             .socket
@@ -281,7 +290,7 @@ impl<'a> Client<'a> {
             .with_timeout(Duration::from_secs(30))
             .await;
         let rcv = rcv.map(|r| r.map(|m| postcard::from_bytes::<PlugMessage>(&buf[..m.0])));
-        let msg = match rcv {
+        match rcv {
             Ok(Ok(Ok(msg))) => {
                 debug!("[broker] Received message: {}", msg);
                 self.feed_msg(Some(msg))
@@ -292,8 +301,13 @@ impl<'a> Client<'a> {
                 ControlFlow::Break(DisconnectReason::Closed)
             }
             Err(_timeout) => self.feed_msg(None),
-        };
+        }
+    }
 
+    pub async fn send_response(
+        &mut self,
+        msg: ControlFlow<DisconnectReason, Option<MessagePayload>>,
+    ) {
         match msg {
             ControlFlow::Continue(Some(msg)) => {
                 if let Err(e) = self.send(msg).await {
@@ -378,16 +392,19 @@ impl<'a> Client<'a> {
             (Some(Mp::Pong { data: _ }), _) => dc!(Dr::ProtocolError),
             (Some(Mp::TurnOff), _) => {
                 info!("[broker] Broker requested TurnOff");
-                RELAY_SIGNAL.signal(Level::Low);
+                RELAY_SIGNAL.signal(RelayMode::Open);
                 ok!(Mp::TurnOffAck)
             }
             (Some(Mp::TurnOn), _) => {
                 info!("[broker] Broker requested TurnOn");
-                RELAY_SIGNAL.signal(Level::High);
+                RELAY_SIGNAL.signal(RelayMode::Closed);
                 ok!(Mp::TurnOnAck)
             }
             (Some(Mp::QueryStatus), _) => {
-                let is_on = self.relay_state.try_get().is_some_and(|l| l == Level::High);
+                let is_on = self
+                    .relay_state
+                    .try_get()
+                    .is_some_and(|l| l == RelayMode::Closed);
                 ok!(Mp::StatusResp { is_on })
             }
             (Some(m), S::Working) => {
@@ -410,13 +427,19 @@ impl<'a> Client<'a> {
     }
 
     pub async fn run(&mut self) -> ! {
+        let mut receiver = WIFI_MSG_CHANNEL.receiver().unwrap();
         loop {
             if self.state == ConnState::Disconnected
                 && let Err(e) = self.connect().await
             {
                 warn!("[broker] Failed to send connection request: {}", e);
             }
-            self.recv().await;
+            match select(self.recv(), receiver.changed()).await {
+                Either::First(f) => self.send_response(f).await,
+                Either::Second(s) => {
+                    let _ = self.send(s).await;
+                }
+            }
         }
     }
 }
@@ -443,6 +466,11 @@ async fn broker_task(stack: Stack<'_>) -> ! {
 
     let broker_ip = Ipv4Addr::from_str(BROKER_IP).unwrap();
     let broker_port = BROKER_PORT.parse::<u16>().unwrap();
+
+    info!(
+        "[broker] Starting new connection to {}:{}",
+        broker_ip, broker_port
+    );
 
     let mut client = Client::new(SocketAddrV4::new(broker_ip, broker_port), sock);
     client.run().await;

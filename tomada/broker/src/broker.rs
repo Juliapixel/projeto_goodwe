@@ -100,6 +100,7 @@ impl Broker {
 
         loop {
             let (msg, addr) = self.stream.next().await.unwrap().unwrap();
+            tracing::debug!("Received {msg:?} from {addr}");
             if matches!(msg.payload, MessagePayload::Conn { id: _ }) {
                 let (tx, rx) = channel(16);
                 tx.send(msg).await.unwrap();
@@ -111,8 +112,10 @@ impl Broker {
                     addr,
                     self.shared_state.clone(),
                 ));
-            } else if let Some(conn) = self.sessions.get(&addr) {
-                conn.send(msg).await.unwrap();
+            } else if let Some(conn) = self.sessions.get(&addr)
+                && let Err(_e) = conn.send(msg).await
+            {
+                self.sessions.remove(&addr);
             }
         }
     }
@@ -185,7 +188,6 @@ impl BrokerConnection {
                         if let Some(mut s) = self.get_state_mut() {
                             s.last_seen = Utc::now();
                         }
-                        debug!("Received {msg:?} from {}", self.addr);
                         self.feed_msg(Some(msg)).await
                     },
                     Ok(None) => {
@@ -197,7 +199,7 @@ impl BrokerConnection {
                         return Err(ConnectionError::Dead);
                     }
                     Err(_timeout) => {
-                        info!("Message receiving timed out");
+                        debug!("Message receiving timed out");
                         self.feed_msg(None).await
                     },
                 }
@@ -210,6 +212,7 @@ impl BrokerConnection {
                     match cmd {
                         PlugCommand::TurnOn => ControlFlow::Continue(Some(MessagePayload::TurnOn)),
                         PlugCommand::TurnOff => ControlFlow::Continue(Some(MessagePayload::TurnOff)),
+                        PlugCommand::QueryState => ControlFlow::Continue(Some(MessagePayload::QueryStatus)),
                     }
                 } else {
                     ControlFlow::Continue(None)
@@ -303,7 +306,7 @@ impl BrokerConnection {
                 }
             }
             (Some(Mp::Pong { data: _ }), _) => dc!(Dr::ProtocolError),
-            (Some(Mp::TurnOffAck), _) => {
+            (Some(Mp::TurnOffAck), _) | (Some(Mp::TurnOffNotify), _) => {
                 self.get_state_mut().unwrap().power_state = crate::PowerState::Off;
                 for t in self
                     .tasks
@@ -313,7 +316,7 @@ impl BrokerConnection {
                 }
                 ok!()
             }
-            (Some(Mp::TurnOnAck), _) => {
+            (Some(Mp::TurnOnAck), _) | (Some(Mp::TurnOnNotify), _) => {
                 self.get_state_mut().unwrap().power_state = crate::PowerState::On;
                 for t in self
                     .tasks
@@ -329,6 +332,12 @@ impl BrokerConnection {
                 } else {
                     PowerState::Off
                 };
+                for t in self
+                    .tasks
+                    .extract_if(.., |t| t.command() == PlugCommand::QueryState)
+                {
+                    t.complete(true);
+                }
                 ok!()
             }
             (Some(m), Cs::Pinging(_d)) => {
@@ -374,8 +383,9 @@ impl std::error::Error for ConnectionError {}
 
 impl Drop for BrokerConnection {
     fn drop(&mut self) {
-        if let Some(plug_id) = &self.plug_id {
-            self.shared_state.plugs.remove(plug_id);
-        }
+        // race condition pinto cu bosta mijo
+        // if let Some(plug_id) = &self.plug_id {
+        //     self.shared_state.plugs.remove(plug_id);
+        // }
     }
 }

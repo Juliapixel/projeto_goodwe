@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
             .split_for_parts();
 
     let router = router
-        .merge(SwaggerUi::new("/docs").url("/docs/swagger.json", openapi.clone()))
+        .merge(SwaggerUi::new("/broker/docs").url("/broker/docs/swagger.json", openapi.clone()))
         .layer(trace_layer)
         .layer(tower_http::cors::CorsLayer::permissive());
 
