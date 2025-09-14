@@ -31,6 +31,7 @@ pub enum PowerState {
 pub enum PlugCommand {
     TurnOn,
     TurnOff,
+    QueryState,
 }
 
 #[derive(Debug)]

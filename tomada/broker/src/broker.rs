@@ -212,6 +212,7 @@ impl BrokerConnection {
                     match cmd {
                         PlugCommand::TurnOn => ControlFlow::Continue(Some(MessagePayload::TurnOn)),
                         PlugCommand::TurnOff => ControlFlow::Continue(Some(MessagePayload::TurnOff)),
+                        PlugCommand::QueryState => ControlFlow::Continue(Some(MessagePayload::QueryStatus)),
                     }
                 } else {
                     ControlFlow::Continue(None)
@@ -331,6 +332,12 @@ impl BrokerConnection {
                 } else {
                     PowerState::Off
                 };
+                for t in self
+                    .tasks
+                    .extract_if(.., |t| t.command() == PlugCommand::QueryState)
+                {
+                    t.complete(true);
+                }
                 ok!()
             }
             (Some(m), Cs::Pinging(_d)) => {
