@@ -27,6 +27,7 @@ h2 {
 }
 h3 { 
     margin-top: 6px;
+    margin-bottom: 6px;
     font-size: 16px;
 }
 canvas {
@@ -36,7 +37,8 @@ canvas {
 }
 .container {
     display: flex;
-    width: 100%;
+    flex-direction: row;
+    width:100%;
     height: 100%;
 }
 .economia_energia_description {
@@ -55,6 +57,7 @@ canvas {
 
 .switch input { display: none; }
 .slider {
+    
     position: absolute;
     cursor: pointer;
     background-color: #ccc;
@@ -95,11 +98,11 @@ input:checked + .slider:before {
 }
 #graficoEconomia {
     
-    padding:3rem 4rem 2rem 3rem;
+    padding:3rem 5rem 2rem 3rem;
 }
 
 #graficoHorario {
-    padding: 3rem 4rem 2rem 3rem ;
+    padding: 3rem 5rem 2rem 3rem ;
 }
 .grafico-bolinha {
     display: flex;
@@ -149,7 +152,7 @@ input:checked + .slider:before {
     display: flex;
     flex-wrap: wrap;
     list-style: none;
-    padding: 2rem;
+    padding: 4rem;
     gap: 20px;
 }
 .dados_gerais_item {
@@ -218,9 +221,9 @@ input:checked + .slider:before {
 }
 
 #painel_controle_lista {
+    display: flex;
     justify-content: center;
     align-items: center;
-    display:flex;
     flex-direction: row;
     flex-wrap: wrap;
     list-style: none;
@@ -228,6 +231,7 @@ input:checked + .slider:before {
 
 }
 .painel_controle_item {
+
     padding: 1rem;
     margin: 1rem;
 }
@@ -450,4 +454,26 @@ input:checked + .slider:before {
 #sidebar.open-sidebar .side-item a {
     justify-content: flex-start;
     gap: 1rem;
+}
+
+@media (max-width: 675px) {
+    #sidebar {
+        width: 80px;
+        flex-shrink: 0;
+    }
+
+    #sidebar.open-sidebar{
+    min-width: 200px;
+    }
+    
+    .container {
+        min-height: 100vw;
+        width: auto;
+        overflow-x: auto;
+    }
+    .conteudo {
+        flex-grow: 1;
+        min-width: 850px;
+        
+    }
 }
