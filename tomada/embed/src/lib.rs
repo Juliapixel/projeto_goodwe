@@ -19,6 +19,7 @@ use crate::status_led::StatusLed;
 
 #[cfg(feature = "ble")]
 mod ble;
+mod fmt;
 mod status_led;
 mod wifi;
 
@@ -26,6 +27,7 @@ extern crate alloc;
 
 #[cfg(feature = "ble")]
 pub use ble::BleHandler;
+pub use fmt::*;
 pub use wifi::WifiHandler;
 
 pub struct App<'a> {
@@ -100,7 +102,8 @@ impl<'a> App<'a> {
 pub type PinSignal<T> = Signal<CriticalSectionRawMutex, T>;
 pub type PinStatus<T> = Watch<CriticalSectionRawMutex, T, 4>;
 
-#[derive(Clone, Copy, PartialEq, Eq, defmt::Format)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RelayMode {
     Open,
     Closed,
@@ -145,7 +148,8 @@ async fn relay_task(pin: &mut Output<'_>) {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, defmt::Format)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum PlugLedMode {
     On,
     Off,
@@ -192,7 +196,8 @@ async fn led_task(pin: &mut Output<'_>) {
 
 pub static BUTTON_STATUS: PinStatus<ButtonEvent> = Watch::new();
 
-#[derive(Clone, Copy, defmt::Format)]
+#[derive(Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum ButtonEvent {
     Press,
     Release,

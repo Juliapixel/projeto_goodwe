@@ -5,9 +5,9 @@ use core::{
     str::FromStr,
 };
 
+use crate::{debug, error, info, warn};
 use alloc::string::String;
 use common::{DisconnectReason, MessagePayload, PlugMessage};
-use defmt::{debug, error, info, warn};
 use dotenvy_macro::dotenv;
 use embassy_futures::select::{select, select3};
 use embassy_net::{
@@ -102,7 +102,7 @@ impl<'a> WifiHandler<'a> {
             })
             .await?
         {
-            defmt::debug!("[wifi] Found AP ({}dBm): {}", ap.signal_strength, &*ap.ssid);
+            debug!("[wifi] Found AP ({}dBm): {}", ap.signal_strength, &*ap.ssid);
         }
 
         controller.set_configuration(&esp_wifi::wifi::Configuration::Client(
@@ -129,7 +129,7 @@ impl<'a> WifiHandler<'a> {
         loop {
             let mut delay = 1000;
             while let Err(e) = self.connect(SSID, Some(PASSWORD)).await {
-                defmt::error!("[wifi] Connection failed, retrying in {}ms: {}", delay, e);
+                error!("[wifi] Connection failed, retrying in {}ms: {}", delay, e);
                 Timer::after_millis(delay).await;
                 delay = core::cmp::min(delay * 2, 10000);
             }
@@ -182,7 +182,8 @@ impl<'a> WifiHandler<'a> {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, defmt::Format)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 enum ConnState {
     Working,
     Connecting,
@@ -192,7 +193,8 @@ enum ConnState {
 
 const SEND_TIMEOUT: Duration = Duration::from_secs(5);
 
-#[derive(Debug, Clone, defmt::Format)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 enum ConnError {
     NoRoute,
     PacketTooLarge,
@@ -452,7 +454,10 @@ async fn broker_task(stack: Stack<'_>) -> ! {
     let broker_ip = Ipv4Addr::from_str(BROKER_IP).unwrap();
     let broker_port = BROKER_PORT.parse::<u16>().unwrap();
 
-    info!("[broker] Starting new connection to {}:{}", broker_ip, broker_port);
+    info!(
+        "[broker] Starting new connection to {}:{}",
+        broker_ip, broker_port
+    );
 
     let mut client = Client::new(SocketAddrV4::new(broker_ip, broker_port), sock);
     client.run().await;

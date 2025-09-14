@@ -8,7 +8,6 @@
 
 #[cfg(feature = "ble")]
 use bt_hci::controller::ExternalController;
-use defmt::{Format, info, write};
 use embassy_executor::Spawner;
 use embassy_net::StackResources;
 use esp_hal::clock::CpuClock;
@@ -19,11 +18,19 @@ use esp_wifi::ble::controller::BleConnector;
 use esp_wifi::wifi::WifiDevice;
 #[cfg(feature = "ble")]
 use goodwe_plug::BleHandler;
-use goodwe_plug::{App, WifiHandler};
+use goodwe_plug::{App, WifiHandler, info};
 use static_cell::StaticCell;
 #[cfg(feature = "ble")]
 use trouble_host::{Address, HostResources, prelude::DefaultPacketPool};
+
+#[cfg(feature = "defmt")]
 use {esp_backtrace as _, esp_println as _};
+
+#[cfg(not(feature = "defmt"))]
+#[panic_handler]
+fn panic_handler(_: &core::panic::PanicInfo) -> ! {
+    esp_hal::system::software_reset()
+}
 
 extern crate alloc;
 
@@ -33,6 +40,7 @@ esp_bootloader_esp_idf::esp_app_desc!();
 
 struct MacAddressFmt([u8; 6]);
 
+#[cfg(feature = "defmt")]
 impl Format for MacAddressFmt {
     fn format(&self, fmt: defmt::Formatter) {
         write!(

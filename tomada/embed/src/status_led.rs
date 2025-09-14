@@ -10,7 +10,8 @@ pub struct StatusLed<'a> {
     led: NoopMutex<Output<'a>>,
 }
 
-#[derive(Debug, Clone, Copy, Default, defmt::Format)]
+#[derive(Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum LedStatusCode {
     Disconnected,
     Connecting,
