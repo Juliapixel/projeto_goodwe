@@ -7,15 +7,16 @@
 #![warn(clippy::todo)]
 #![warn(clippy::unimplemented)]
 
+use common::MessagePayload;
 #[cfg(not(feature = "ble"))]
 use embassy_futures::select::select5;
 #[cfg(feature = "ble")]
 use embassy_futures::select::select6;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal, watch::Watch};
-use embassy_time::{Duration, Timer, WithTimeout};
+use embassy_time::Timer;
 use esp_hal::gpio::{Input, InputConfig, InputPin, Level, Output, OutputConfig, OutputPin, Pull};
 
-use crate::status_led::StatusLed;
+use crate::{status_led::StatusLed, wifi::WIFI_MSG_CHANNEL};
 
 #[cfg(feature = "ble")]
 mod ble;
@@ -144,6 +145,12 @@ async fn relay_task(pin: &mut Output<'_>) {
         if mode != pin.output_level().into() {
             pin.set_level(mode.into());
             sender.send(mode);
+            match mode {
+                RelayMode::Open => WIFI_MSG_CHANNEL
+                    .sender()
+                    .send(MessagePayload::TurnOffNotify),
+                RelayMode::Closed => WIFI_MSG_CHANNEL.sender().send(MessagePayload::TurnOnNotify),
+            };
         }
     }
 }
@@ -208,16 +215,9 @@ const BUTTON_PRESSED_LEVEL: Level = Level::Low;
 async fn button_task(pin: &mut Input<'_>) {
     let sender = BUTTON_STATUS.sender();
     let mut prev_level = pin.level();
-    // TODO: do we have to poll it? do interrupts miss?
     loop {
-        if pin
-            .wait_for_any_edge()
-            .with_timeout(Duration::from_millis(50))
-            .await
-            .is_ok()
-        {
-            Timer::after_millis(50).await;
-        }
+        pin.wait_for_any_edge().await;
+        Timer::after_millis(50).await;
         let level = pin.level();
         if level == prev_level {
             continue;

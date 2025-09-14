@@ -9,7 +9,7 @@ use crate::{debug, error, info, warn};
 use alloc::string::String;
 use common::{DisconnectReason, MessagePayload, PlugMessage};
 use dotenvy_macro::dotenv;
-use embassy_futures::select::{select, select3};
+use embassy_futures::select::{Either, select, select3};
 use embassy_net::{
     Config, DhcpConfig, IpListenEndpoint, Runner, Stack, StackResources,
     udp::{PacketMetadata, RecvError, SendError, UdpSocket},
@@ -18,7 +18,7 @@ use embassy_sync::{
     blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
     lazy_lock::LazyLock,
     mutex::Mutex,
-    watch::Receiver,
+    watch::{Receiver, Watch},
 };
 use embassy_time::{Duration, TimeoutError, Timer, WithTimeout};
 use esp_wifi::wifi::{
@@ -241,6 +241,8 @@ struct Client<'a> {
     relay_state: Receiver<'static, CriticalSectionRawMutex, RelayMode, 4>,
 }
 
+pub static WIFI_MSG_CHANNEL: Watch<CriticalSectionRawMutex, MessagePayload, 1> = Watch::new();
+
 impl<'a> Client<'a> {
     fn new(addr: SocketAddrV4, socket: UdpSocket<'a>) -> Self {
         Self {
@@ -280,7 +282,7 @@ impl<'a> Client<'a> {
         self.send(MessagePayload::Disconnect { reason }).await
     }
 
-    pub async fn recv(&mut self) {
+    pub async fn recv(&mut self) -> ControlFlow<DisconnectReason, Option<MessagePayload>> {
         let mut buf = [0u8; 512];
         let rcv = self
             .socket
@@ -288,7 +290,7 @@ impl<'a> Client<'a> {
             .with_timeout(Duration::from_secs(30))
             .await;
         let rcv = rcv.map(|r| r.map(|m| postcard::from_bytes::<PlugMessage>(&buf[..m.0])));
-        let msg = match rcv {
+        match rcv {
             Ok(Ok(Ok(msg))) => {
                 debug!("[broker] Received message: {}", msg);
                 self.feed_msg(Some(msg))
@@ -299,8 +301,13 @@ impl<'a> Client<'a> {
                 ControlFlow::Break(DisconnectReason::Closed)
             }
             Err(_timeout) => self.feed_msg(None),
-        };
+        }
+    }
 
+    pub async fn send_response(
+        &mut self,
+        msg: ControlFlow<DisconnectReason, Option<MessagePayload>>,
+    ) {
         match msg {
             ControlFlow::Continue(Some(msg)) => {
                 if let Err(e) = self.send(msg).await {
@@ -420,13 +427,19 @@ impl<'a> Client<'a> {
     }
 
     pub async fn run(&mut self) -> ! {
+        let mut receiver = WIFI_MSG_CHANNEL.receiver().unwrap();
         loop {
             if self.state == ConnState::Disconnected
                 && let Err(e) = self.connect().await
             {
                 warn!("[broker] Failed to send connection request: {}", e);
             }
-            self.recv().await;
+            match select(self.recv(), receiver.changed()).await {
+                Either::First(f) => self.send_response(f).await,
+                Either::Second(s) => {
+                    let _ = self.send(s).await;
+                }
+            }
         }
     }
 }
