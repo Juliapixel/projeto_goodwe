@@ -54,8 +54,8 @@ impl Decoder for BrokerCodec {
             Err(e) => {
                 src.clear();
                 tracing::warn!("Deserialization error: {e}");
-                return Err(e.into())
-            },
+                return Err(e.into());
+            }
         };
         src.clear();
         Ok(Some(msg))

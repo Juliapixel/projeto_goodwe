@@ -113,9 +113,10 @@ impl Broker {
                     self.shared_state.clone(),
                 ));
             } else if let Some(conn) = self.sessions.get(&addr)
-                && let Err(_e) = conn.send(msg).await {
-                    self.sessions.remove(&addr);
-                }
+                && let Err(_e) = conn.send(msg).await
+            {
+                self.sessions.remove(&addr);
+            }
         }
     }
 }
@@ -304,8 +305,7 @@ impl BrokerConnection {
                 }
             }
             (Some(Mp::Pong { data: _ }), _) => dc!(Dr::ProtocolError),
-            (Some(Mp::TurnOffAck), _)
-            | (Some(Mp::TurnOffNotify), _) => {
+            (Some(Mp::TurnOffAck), _) | (Some(Mp::TurnOffNotify), _) => {
                 self.get_state_mut().unwrap().power_state = crate::PowerState::Off;
                 for t in self
                     .tasks
@@ -315,8 +315,7 @@ impl BrokerConnection {
                 }
                 ok!()
             }
-            (Some(Mp::TurnOnAck), _)
-            | (Some(Mp::TurnOnNotify), _) => {
+            (Some(Mp::TurnOnAck), _) | (Some(Mp::TurnOnNotify), _) => {
                 self.get_state_mut().unwrap().power_state = crate::PowerState::On;
                 for t in self
                     .tasks

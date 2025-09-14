@@ -103,7 +103,7 @@ pub async fn set_state(
                     Err(_) => {
                         tracing::warn!("task dropped by plug");
                         false
-                    },
+                    }
                 }
             }
         })
