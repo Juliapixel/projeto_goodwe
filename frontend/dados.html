@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+</head>
+<body>
+    <title> goodwe client</title>
+    <div class="container">
+    <nav id="sidebar">
+        <div id="side_content">
+            <div id="user">
+                <img src="/src/user-sem-rosto.jpeg" id="icon_user" alt="icon de usuário" width="200px">
+
+                <p id="dados">
+                    <span class="user_details">
+                        Nome3445
+                    </span>
+                    <span class="user_details">
+                        usuário
+                    </span>
+                </p>
+            </div>
+
+            <ul id="side_items">
+                <li class="side-item active">
+                    <a href='/index.html'>
+                        <i class="fa-solid fa-charging-station"></i>
+                        <span class="item_description">
+                            Economia de energia
+                        </span>
+                    </a>
+                </li>
+                
+                <li class="side-item active">
+                    <a href='/painel.html'>
+                        <i class="fa-solid fa-gamepad"></i>
+                        <span class="item_description">
+                            Painel de controle
+                        </span>
+                    </a>
+                </li>
+              
+                <li class="side-item active">
+                    <a href='/dados.html'>
+                        <i class="fa-solid fa-chart-simple"></i>
+                        <span class="item_description">
+                            Dados gerais
+                        </span>
+                    </a>
+                </li>
+            <li class ="side-item active">
+                    <a href='/config.html'>
+                        <i class="fa-solid fa-gears"></i>
+                        <span class="item_description">
+                            Configurações
+                        </span>
+                    </a>
+                </li>
+            </ul>
+
+            <button id="open_btn">
+                <i id="open_btn_icon" class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+
+        <div id="logout">
+            <button id="logout_button">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                <span class="item_description">
+                        Logout
+                </span>
+            </button>
+        </div>
+    </nav>
+    
+    <main class="conteudo">
+
+        <section class="box">  
+            <h1>
+                Dados gerais
+            </h1>
+            <p> Lorem ipsum dolor sit amet consectetur adipisicing elit. Cumque tempora ab quasi dolorem itaque officiis aut dignissimos eveniet nihil, facilis quaerat, consectetur corporis. Sequi tenetur sapiente ea illo incidunt minima.</p>
+            <ul id="dados_gerais_lista"> 
+                <li class="dados_gerais_item"><h3>Consumo atual </h3> 
+                <canvas id="graficoConsumo"></canvas>
+                </li>
+                    <p> </p>
+                <li class="dados_gerais_item"> <h3>Produção atual</h3>
+                <canvas id="graficoProducao"></canvas> </li>
+                <li class="dados_gerais_item"><h3>Carga da bateria</h3>
+                    <p> Lorem ipsum dolor sit amet consectetur adipisicing elit. Facere, qui. Adipisci, itaque velit fugit repellat dolor nesciunt laboriosam? Ex doloremque consequatur saepe odio eveniet dolor impedit. Nihil cupiditate sit vitae.</p>
+                <div class="bateria-container">
+                    <div class="bateria">
+                        <div class="nivel" id="nivelBateria"></div>
+                    </div>
+                <span id="porcentagemBateria"></span>
+                </div>
+                </li>
+            </ul>
+                    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+            // Valores simulados (trocar pelos dados reais)
+            const consumoAtual = 3.5; // kWh
+            const producaoAtual = 2.0; // kWh
+            const porcentagemBateria = 60; // %
+
+            // Gráfico de Consumo Atual
+            new Chart(document.getElementById('graficoConsumo').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Consumo Atual'],
+                    datasets: [{
+                        label: 'kWh',
+                        data: [consumoAtual],
+                        backgroundColor: 'rgba(255, 0, 0, 0.7)',
+                        borderColor: 'rgba(255, 0, 0, 0.7)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { 
+                        y: { 
+                            max: 5, 
+                            beginAtZero: true 
+                        } 
+                    }
+                },
+            });
+
+            // Gráfico de Produção
+            new Chart(document.getElementById('graficoProducao').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Produção'],
+                    datasets: [{
+                        label: 'kWh',
+                        data: [producaoAtual],
+                        backgroundColor: 'rgba(255, 0, 0, 0.7)',
+                        borderColor: 'rgba(255, 0, 0, 0.7)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { 
+                        y: { 
+                            max: 5,
+                            beginAtZero: true 
+                        } 
+                    }
+                }
+            });
+
+            // Indicador de bateria
+            const nivelBateria = document.getElementById('nivelBateria');
+            const textoBateria = document.getElementById('porcentagemBateria');
+
+            nivelBateria.style.width = porcentagemBateria + '%';
+            textoBateria.textContent = porcentagemBateria + '%';
+
+            // Muda cor conforme nível
+            if (porcentagemBateria > 60) {
+                nivelBateria.style.backgroundColor = 'rgba(0, 180, 0, 0.7)';
+            } else if (porcentagemBateria > 30) {
+                nivelBateria.style.backgroundColor = 'rgba(255, 165, 0, 0.7)';
+            } else {
+                nivelBateria.style.backgroundColor = 'rgba(255, 0, 0, 0.7)';
+            }
+        });
+        </script>
+        </section>
+    </main>
+    </div> 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/javascript/script.js"></script>
+</body>
+</html>
