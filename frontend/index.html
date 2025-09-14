@@ -87,19 +87,15 @@
                 Economia de energia
             </h1>
             <h2> Ativar modo de economia de energia</h2>
-            <p class="economia_energia_description"> descrição da função do modo de economia de energia </p>
+            <p class="economia_energia_description"> Descrição da função do modo de economia de energia </p>
             <label class="switch">
             <input type="checkbox" id="modoEconomia" onchange="toggleModo()">
             <span class="slider"></span>
             </label>
             <ul id="economia_energia_lista">
-                <li> 
+                <li class = "economia_energia_item"> 
                     <h3> Gráfico de economia mensal </h3>
-                    <p> Lorem ipsum dolor sit amet consectetur adipisicing elit. Modi maxime ad quo sit. Suscipit, fuga fugit reiciendis minus libero minima sed, voluptates dolorum in aperiam perspiciatis, excepturi non maxime id.
-                    </p>
-                </li>
-            
-            
+                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsum, eligendi fugit. Quae quaerat placeat quos a corporis asperiores voluptatem saepe cumque rem! </p>
             <canvas id="graficoEconomia"></canvas>
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <script>
@@ -149,12 +145,10 @@
     }
 });
         </script>
-        
-            <li> 
-                <h3> Gráfico de economia diária </h3>
-                <p> Lorem ipsum dolor sit amet consectetur adipisicing elit. Illum reiciendis nostrum aliquid veritatis voluptatem commodi reprehenderit inventore, eveniet et suscipit explicabo voluptates, esse iure nihil dolore alias. Praesentium, possimus itaque?</p>
             </li>
-        </ul>
+            <li class="economia_energia_item"> 
+                <h3> Gráfico de economia diária </h3>
+                <p>Lorem ipsum dolor, sit amet consectetur adipisicing elit. Corrupti accusantium doloribus unde quis assumenda culpa nemo iure illum!</p>
         <canvas id="graficoHorario"></canvas>
 <script>
 const ctxHorario = document.getElementById('graficoHorario').getContext('2d');
@@ -202,6 +196,8 @@ const graficoHorario = new Chart(ctxHorario, {
     }
 });
 </script>
+</li>
+<ul>
     </section>
     </main>
     </div>

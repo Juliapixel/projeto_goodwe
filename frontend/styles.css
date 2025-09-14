@@ -250,6 +250,7 @@ input:checked + .slider:before {
     background: linear-gradient(135deg, rgba(235, 234, 235, 0.8), rgba(143, 142, 142, 0.7), rgba(215, 213, 213, 0.8));
     backdrop-filter: blur(8px);
 }
+
 #side_content {
     padding: 1rem;
 }
@@ -454,26 +455,4 @@ input:checked + .slider:before {
 #sidebar.open-sidebar .side-item a {
     justify-content: flex-start;
     gap: 1rem;
-}
-
-@media (max-width: 675px) {
-    #sidebar {
-        width: 80px;
-        flex-shrink: 0;
-    }
-
-    #sidebar.open-sidebar{
-    min-width: 200px;
-    }
-    
-    .container {
-        min-height: 100vw;
-        width: auto;
-        overflow-x: auto;
-    }
-    .conteudo {
-        flex-grow: 1;
-        min-width: 850px;
-        
-    }
 }
