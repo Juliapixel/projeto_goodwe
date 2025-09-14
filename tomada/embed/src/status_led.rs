@@ -15,7 +15,6 @@ pub struct StatusLed<'a> {
 pub enum LedStatusCode {
     Disconnected,
     Connecting,
-    Pairing,
     Working,
     #[default]
     Idle,
@@ -54,12 +53,6 @@ impl<'a> StatusLed<'a> {
             }
             LedStatusCode::Connecting => {
                 self.short_blink().await;
-            }
-            LedStatusCode::Pairing => {
-                self.set_onboard_led(Level::Low);
-                Timer::after_millis(500).await;
-                self.set_onboard_led(Level::High);
-                Timer::after_millis(500).await;
             }
             LedStatusCode::Idle => {
                 self.set_onboard_led(Level::High);
