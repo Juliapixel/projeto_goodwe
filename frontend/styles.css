@@ -32,7 +32,7 @@ h3 {
 }
 canvas {
     max-width: 100%;
-    height: auto;
+    height: 5rem;
     display: block;
 }
 .container {
@@ -177,7 +177,7 @@ input:checked + .slider:before {
   
 }
 .bateria-container {
-    padding: 1rem 2rem 0rem 2rem;
+    padding: 3rem 2rem 0rem 5rem;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -286,7 +286,7 @@ input:checked + .slider:before {
 }
 
 #sidebar.open-sidebar #dados {
-    width: 180px;
+    width: 140px;
     opacity: 1;
     white-space: wrap;
     padding-left: 0px;
