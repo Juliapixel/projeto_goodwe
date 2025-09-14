@@ -95,9 +95,16 @@ pub async fn set_state(
             // avoids deadlocking
             drop(plug);
             if !sent {
+                tracing::warn!("Sending task to plug failed");
                 false
             } else {
-                rx.await.is_ok_and(|i| i)
+                match rx.await {
+                    Ok(b) => b,
+                    Err(_) => {
+                        tracing::warn!("task dropped by plug");
+                        false
+                    },
+                }
             }
         })
         .await

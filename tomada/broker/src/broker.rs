@@ -187,7 +187,6 @@ impl BrokerConnection {
                         if let Some(mut s) = self.get_state_mut() {
                             s.last_seen = Utc::now();
                         }
-                        debug!("Received {msg:?} from {}", self.addr);
                         self.feed_msg(Some(msg)).await
                     },
                     Ok(None) => {
