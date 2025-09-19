@@ -1,0 +1,29 @@
+name: CD Broker
+
+on:
+  push:
+    branches:
+      - main
+      - ci
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      -
+        name: Checkout repo
+        uses: actions/checkout@v4
+      -
+        name: Setup buildx
+        uses: docker/setup-buildx-action@v3
+      -
+        name: Build
+        run: docker buildx build --network host --platform=linux/arm64 -t goodwe_broker:latest ./tomada
+      -
+        name: Deploy
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          echo "$SSH_KEY" > actions_key;
+          chmod 600 actions_key;
+          docker save --platform=linux/arm64 goodwe_broker:latest | ssh -o StrictHostKeyChecking=no -i actions_key github_actions@${{ secrets.VPS_IP }} 'docker load'
