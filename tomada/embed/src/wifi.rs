@@ -1,14 +1,14 @@
 use core::{
     net::{Ipv4Addr, SocketAddrV4},
     num::Wrapping,
-    ops::ControlFlow,
+    ops::{ControlFlow, Deref},
     str::FromStr,
 };
 
 use crate::{debug, error, info, warn};
 use alloc::string::String;
 use common::{DisconnectReason, MessagePayload, PlugMessage};
-use dotenvy_macro::dotenv;
+use dotenvy_macro::{dotenv, option_dotenv};
 use embassy_futures::select::{Either, select, select3};
 use embassy_net::{
     Config, DhcpConfig, IpListenEndpoint, Runner, Stack, StackResources,
@@ -42,8 +42,21 @@ pub struct WifiHandler<'a> {
 const BROKER_IP: &str = dotenv!("BROKER_IP");
 const BROKER_PORT: &str = dotenv!("BROKER_PORT");
 
-const SSID: &str = dotenv!("SSID");
-const PASSWORD: &str = dotenv!("PASSWORD");
+const SSID_PASSWORD: (&str, &str) = (dotenv!("SSID"), dotenv!("PASSWORD"));
+
+const SSID_PASSWORD2: Option<(&str, &str)> =
+    match (option_dotenv!("SSID2"), option_dotenv!("PASSWORD2")) {
+        (Some(s), Some(p)) => Some((s, p)),
+        (None, None) => None,
+        _ => panic!(),
+    };
+
+const SSID_PASSWORD3: Option<(&str, &str)> =
+    match (option_dotenv!("SSID3"), option_dotenv!("PASSWORD3")) {
+        (Some(s), Some(p)) => Some((s, p)),
+        (None, None) => None,
+        _ => panic!(),
+    };
 
 impl<'a> WifiHandler<'a> {
     pub fn new(
@@ -68,8 +81,8 @@ impl<'a> WifiHandler<'a> {
 
     pub async fn connect(
         &self,
-        ssid: impl Into<String>,
-        passwd: Option<impl Into<String>>,
+        ssid: impl Into<String> + Deref<Target = str>,
+        passwd: Option<impl Into<String> + Deref<Target = str>>,
     ) -> Result<(), WifiError> {
         let mut controller = self.controller.lock().await;
 
@@ -105,6 +118,8 @@ impl<'a> WifiHandler<'a> {
             debug!("[wifi] Found AP ({}dBm): {}", ap.signal_strength, &*ap.ssid);
         }
 
+        info!("[wifi] Connecting to {}", &*ssid);
+
         controller.set_configuration(&esp_wifi::wifi::Configuration::Client(
             ClientConfiguration {
                 ssid: ssid.into(),
@@ -113,22 +128,57 @@ impl<'a> WifiHandler<'a> {
             },
         ))?;
 
-        info!("[wifi] Connecting");
         controller.connect_async().await?;
 
         debug!("[wifi] Waiting for connection up");
         loop {
             if controller.is_connected()? {
                 return Ok(());
+            } else {
+                let _ = controller
+                    .wait_for_events(
+                        [WifiEvent::StaConnected, WifiEvent::StaDisconnected].into(),
+                        false,
+                    )
+                    .with_timeout(Duration::from_secs(1))
+                    .await;
             }
         }
+    }
+
+    pub async fn connect_many<S, P>(
+        &self,
+        pairs: impl IntoIterator<Item = (S, P)>,
+    ) -> Result<(), WifiError>
+    where
+        S: Into<String> + Deref<Target = str>,
+        P: Into<String> + Deref<Target = str>,
+    {
+        for (ssid, passwd) in pairs {
+            if let Err(e) = self.connect(ssid, Some(passwd)).await {
+                if !matches!(e, WifiError::Disconnected) {
+                    return Err(e);
+                }
+            } else {
+                return Ok(());
+            }
+        }
+        Err(WifiError::Disconnected)
     }
 
     pub async fn run(&self) {
         LED_STATUS.signal(LedStatusCode::Connecting);
         loop {
             let mut delay = 1000;
-            while let Err(e) = self.connect(SSID, Some(PASSWORD)).await {
+
+            while let Err(e) = self
+                .connect_many(
+                    [Some(SSID_PASSWORD), SSID_PASSWORD2, SSID_PASSWORD3]
+                        .into_iter()
+                        .flatten(),
+                )
+                .await
+            {
                 error!("[wifi] Connection failed, retrying in {}ms: {}", delay, e);
                 Timer::after_millis(delay).await;
                 delay = core::cmp::min(delay * 2, 10000);

@@ -99,6 +99,11 @@ dotenvy_macro = "0.15.7"
 # esp-bootloader-esp-idf = { git = "https://github.com/esp-rs/esp-hal.git" }
 # esp-wifi = { git = "https://github.com/esp-rs/esp-hal.git", package = "esp-radio" }
 
+# ótimo fork, gosto muito
+[patch.crates-io.dotenvy_macro]
+git = "https://github.com/juliapixel/dotenvy.git"
+branch = "feat/codegen_attrs"
+
 [features]
 default = ["security"]
 defmt = [
