@@ -124,6 +124,34 @@ Mostra os primeiros 2000 resultados
 df["acao_predita"] = modelo.predict(df[["hora", "load"]])
 df["acao_predita"] = df["acao_predita"].map({1: "Desligar standby!", 0: "Manter ligado!"})
 
+
+'''
+Calculos de Economia
+Consumo Real vs Otimizado
+'''
+# Define intervalo entre medições (ajuste conforme seus dados)
+intervalo_medicao = 5  # minutos por medição
+horas_por_medicao = intervalo_medicao / 60
+
+# Cria coluna com consumo otimizado (quando IA decide desligar, economiza 70% do consumo)
+df["consumo_otimizado"] = df["load"].copy()
+mask_desligar = df["acao_predita"] == "Desligar standby!"
+df.loc[mask_desligar, "consumo_otimizado"] = df.loc[mask_desligar, "load"] * 0.3
+
+# VARIÁVEIS PARA O SEU PRINT:
+energia_real_kwh = (df["load"] * horas_por_medicao / 1000).sum()
+energia_ai_kwh = (df["consumo_otimizado"] * horas_por_medicao / 1000).sum()
+economia_kwh = energia_real_kwh - energia_ai_kwh
+preco_kwh = 0.65  # R$ por kWh - ajuste conforme sua região
+economia_reais = economia_kwh * preco_kwh
+dia_escolhido = f"{df['time'].dt.date.min()} a {df['time'].dt.date.max()}"
+
+print("\n📊 RESULTADOS", dia_escolhido)
+print("Consumo real:", round(energia_real_kwh, 2), "kWh")
+print("Consumo otimizado IA:", round(energia_ai_kwh, 2), "kWh")
+print("Economia:", round(economia_kwh, 2), "kWh → R$", round(economia_reais, 2))
+
+
 # Filtra por dia 16 e horas entre 16 e 18
 df_filtrado = df[
     (df["time"].dt.date == pd.to_datetime("2025-09-16").date()) &
@@ -142,3 +170,4 @@ qual seria melhor?
 for limite in [150, 200, 250, 300]:
     df["deve_desligar"] = ((df["hora"].between(0, 5)) & (df["load"] <= limite)).astype(int)
     print(f"Com limite {limite}W, quantidade de desligamentos:", df["deve_desligar"].sum())
+
