@@ -2,8 +2,11 @@ import asyncio
 from datetime import date, datetime, time, timedelta, timezone
 import json
 import base64
-from typing import Literal, Tuple
+from re import L
+from typing import Iterable, Literal, Tuple
 import aiohttp
+
+from modelo_IA.IA_treinada import calcular_economia, deve_desligar
 
 class GoodweClient():
     # sim tudo hardcoded fodase
@@ -68,6 +71,61 @@ class GoodweClient():
 
         results = await asyncio.gather(*tasks)
         return sum(results)
+
+    async def economia_periodo(self, days: int) -> float:
+        """retorna o consumo em kWh dos ultimos n dias"""
+        def days_gen():
+            delta = timedelta(max(days - 1, 0))
+            now = self.cur_time()
+            today = date(now.year, now.month, now.day)
+            cur = today - delta
+            while cur <= today:
+                yield cur
+                cur += timedelta(days=1)
+
+        tasks = []
+        for day in days_gen():
+            tasks.append(asyncio.create_task(self.day_econ(day)))
+
+        results = await asyncio.gather(*tasks)
+        return sum(results)
+
+    async def report_economia_consumo(self, *dias_atras: int) -> list[tuple[float, float]]:
+        def days_gen():
+            delta = timedelta(max(dias_atras))
+            now = self.cur_time()
+            today = date(now.year, now.month, now.day)
+            cur = today - delta
+            while cur <= today:
+                yield cur
+                cur += timedelta(days=1)
+
+        tasks = []
+        for day in days_gen():
+            tasks.append(asyncio.create_task(self.plant_data(day)))
+
+        days = days_gen()
+        now = self.cur_time()
+        today = date(now.year, now.month, now.day)
+        splits: list[tuple[float, float]] = []
+        for i in range(len(dias_atras)):
+            splits.append((0, 0))
+        cons_dia = 0
+        cons_semana = 0
+        cons_mes = 0
+        econ_dia = 0
+        econ_semana = 0
+        econ_mes = 0
+        for pv, bat, meter, load, charge in await asyncio.gather(*tasks):
+            cons = GoodweClient.__cons_from_day_load(load)
+            econ = GoodweClient.__econ_from_day_load(load)
+            day = next(days)
+            delta = (today - day).days
+            for i, cutoff in enumerate(dias_atras):
+                if delta <= cutoff:
+                    splits[i] = (splits[i][0] + cons, splits[i][1] + econ)
+
+        return splits
 
     def cur_time(self) -> datetime:
         now = datetime.now(self.TIMEZONE)
@@ -148,10 +206,23 @@ class GoodweClient():
         charge = list(map(lambda d: (xy_parse(d["x"], d["y"])), lines["PCurve_Power_SOC"]))
         return pv, bat, meter, load, charge
 
+    @classmethod
+    def __cons_from_day_load(_cls, data: Iterable[tuple[datetime, float]]) -> float:
+        return sum(map(lambda c: (c[1] * (5 / 60)) / 1000, data))
+
     async def day_cons(self, date: date) -> float:
         """consumo do dia em kWh"""
         pv, bat, meter, load, charge = await self.plant_data(date)
-        return sum(map(lambda c: (c[1] * (5 / 60)) / 1000, load))
+        return GoodweClient.__cons_from_day_load(load)
+
+    @classmethod
+    def __econ_from_day_load(_cls, data: Iterable[tuple[datetime, float]]) -> float:
+        return sum(map(lambda l: calcular_economia(l[1], deve_desligar(l[0].hour, l[1])) * (5 / 60) / 1000, data))
+
+    async def day_econ(self, date: date) -> float:
+        """economia do dia em kWh"""
+        pv, bat, meter, load, charge = await self.plant_data(date)
+        return GoodweClient.__econ_from_day_load(load)
 
     async def __crosslogin(self):
         resp = await self.client.post(

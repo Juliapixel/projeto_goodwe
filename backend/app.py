@@ -19,17 +19,22 @@ async def dados_assistente():
 
         eday, emonth = await client.eday_emonth()
         bat = await client.cur_bat()
-        cons_dia = await client.consumo_periodo(1)
-        cons_semana = await client.consumo_periodo(7)
-        cons_mes = await client.consumo_periodo(30)
+
+        dia, semana, mes = await client.report_economia_consumo(0, 6, 6)
+        cons_dia, econ_dia = dia
+        cons_semana, econ_semana = semana
+        cons_mes, econ_mes = mes
         await client.close()
 
         return jsonify({
             "consumo_diario_kwh": cons_dia,
             "consumo_semanal_kwh": cons_semana,
             "consumo_mensal_kwh": cons_mes,
-            "energia_diaria_kwh": eday,
-            "energia_mensal_kwh": emonth,
+            "economia_diaria_kwh": econ_dia,
+            "economia_semanal_kwh": econ_semana,
+            "economia_mensal_kwh": econ_mes,
+            "prod_diaria_kwh": eday,
+            "prod_mensal_kwh": emonth,
             "bateria": bat,
         })
     except Exception as e:
@@ -65,6 +70,40 @@ async def producao_agora():
         gen = await client.cur_gen()
         await client.close()
         return jsonify({"data": gen})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"erro": str(e)}), 500
+
+@app.get('/graficos/econ_semana')
+async def econ_semana():
+    DIAS = [
+        "segunda-feira",
+        "terça-feira",
+        "quarta-feira",
+        "quinta-feira",
+        "sexta-feira",
+        "sábado",
+        "domingo"
+    ]
+    try:
+        client = await GoodweClient.create("eu")
+        def days_gen():
+                delta = timedelta(6)
+                now = client.cur_time()
+                today = date(now.year, now.month, now.day)
+                cur = today - delta
+                while cur <= today:
+                    yield cur
+                    cur += timedelta(days=1)
+        tasks = []
+        for day in days_gen():
+            tasks.append(asyncio.create_task(client.day_econ(day)))
+
+        days = days_gen()
+        data = list(map(lambda d: (DIAS[next(days).weekday()], d), await asyncio.gather(*tasks)))
+        await client.close()
+        return jsonify(data)
+
     except Exception as e:
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500

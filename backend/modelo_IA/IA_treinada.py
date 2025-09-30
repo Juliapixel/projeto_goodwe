@@ -182,42 +182,24 @@ def deve_desligar(hora, load):
     return modelo.predict(pd.DataFrame({"hora": [hora], "load": [load]}))[0] == 1
 
 
-def calcular_economia(load_atual, deve_desligar, intervalo_minutos=5, preco_kwh=0.65):
+def calcular_economia(load_atual: float, deve_desligar: bool) -> float:
     """
-    Calcula a economia de energia em tempo real
+    Calcula a economia de energia em W
 
     Args:
         load_atual (float): Consumo atual em Watts
         deve_desligar (bool): True se deve desligar, False se mantém ligado
-        intervalo_minutos (int): Intervalo entre medições em minutos
-        preco_kwh (float): Preço por kWh em reais
 
     Returns:
-        dict: {
-            'consumo_real_kwh': float,
-            'consumo_otimizado_kwh': float,
-            'economia_kwh': float,
-            'economia_reais': float
-        }
+        consumo_otimizado_w (float)
     """
-    horas_por_medicao = intervalo_minutos / 60
 
-    # Consumo real (sem otimização)
-    consumo_real_kwh = (load_atual * horas_por_medicao) / 1000
-
-    # Consumo otimizado (se desligar, economiza 70%)
     if deve_desligar:
-        consumo_otimizado_kwh = (load_atual * 0.3 * horas_por_medicao) / 1000
+        consumo_otimizado_w = (load_atual * 0.3)
     else:
-        consumo_otimizado_kwh = consumo_real_kwh
+        consumo_otimizado_w = load_atual
 
     # Economia
-    economia_kwh = consumo_real_kwh - consumo_otimizado_kwh
-    economia_reais = economia_kwh * preco_kwh
+    economia_w = load_atual - consumo_otimizado_w
 
-    return {
-        'consumo_real_kwh': round(consumo_real_kwh, 4),
-        'consumo_otimizado_kwh': round(consumo_otimizado_kwh, 4),
-        'economia_kwh': round(economia_kwh, 4),
-        'economia_reais': round(economia_reais, 4)
-    }
+    return economia_w
