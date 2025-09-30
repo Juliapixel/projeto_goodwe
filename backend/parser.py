@@ -1,32 +1,15 @@
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Tuple
 
-def gerar_datas_desde_instalacao(data_instalacao: str, limite_dias: int = 30) -> list[str]:
-    inicio = datetime.now() - timedelta(days=limite_dias)
-    hoje = datetime.now()
-    datas = []
-
-    while inicio <= hoje:
-        datas.append(inicio.strftime("%Y-%m-%d 00:00:00"))
-        inicio += timedelta(days=1)
-
-    return datas
-
-def tratar_dados_energia(dados_eday: dict, dados_bateria: dict) -> dict:
+def tratar_dados_energia(dados_eday: list[Tuple[datetime, float]], dados_bateria: list[Tuple[datetime, float]]) -> dict:
     try:
-        registros_energia = dados_eday.get("data", {}).get("column1", [])
-        registros_bateria = dados_bateria.get("data", {}).get("column1", [])
-
         hoje = datetime.now()
         energia_diaria = 0
         energia_semanal = 0
         energia_mensal = 0
         energia_anual = 0
 
-        for item in registros_energia:
-            valor = float(item.get("column", 0))
-            data_str = item.get("date")
-            data = datetime.strptime(data_str, "%m/%d/%Y %H:%M:%S")
-
+        for data, valor in dados_eday:
             if data.date() == hoje.date():
                 energia_diaria += valor
             if (hoje - data).days <= 7:
@@ -36,12 +19,8 @@ def tratar_dados_energia(dados_eday: dict, dados_bateria: dict) -> dict:
             if data.year == hoje.year:
                 energia_anual += valor
 
-        bateria_hoje = None
-        for item in reversed(registros_bateria):
-            data = datetime.strptime(item["date"], "%m/%d/%Y %H:%M:%S")
-            valor = float(item["column"])
-            if data.date() == hoje.date() and data <= hoje and valor > 0:
-                bateria_hoje = valor   
+        print(f"ultima bat: {dados_bateria[-1]}")
+        bateria_hoje = dados_bateria[-1][1]
 
         return {
             "energia_diaria_kwh": round(energia_diaria, 2),

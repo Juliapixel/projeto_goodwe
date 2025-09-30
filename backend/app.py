@@ -1,38 +1,138 @@
-from flask import Flask, jsonify
-from datetime import datetime
-from client import crosslogin, get_inverter_data_by_column
-from parser import tratar_dados_energia, gerar_datas_desde_instalacao
+import asyncio
+import traceback
+import dotenv
+from datetime import date, timedelta
 
-app = Flask(__name__)
+from quart import Quart, jsonify, request
 
-@app.route('/assistente')
-def dados_assistente():
+from tomada import get_tomada, set_tomada
+from client import GoodweClient
+
+app = Quart(__name__)
+
+dotenv.load_dotenv()
+
+@app.get('/assistente')
+async def dados_assistente():
     try:
-        account = "demo@goodwe.com"
-        password = "GoodweSems123!@#"
-        inverter_sn = "5010KETU229W6177"
-        data_instalacao = "2024-12-06" 
+        client = await GoodweClient.create("eu")
 
-        token = crosslogin(account, password)
-        datas = gerar_datas_desde_instalacao(data_instalacao, limite_dias=30)
+        eday, emonth = await client.eday_emonth()
+        bat = await client.cur_bat()
+        cons_dia = await client.consumo_periodo(1)
+        cons_semana = await client.consumo_periodo(7)
+        cons_mes = await client.consumo_periodo(30)
+        await client.close()
 
-        registros_eday = []
-        registros_bateria = []
-
-        for data_str in datas:  
-            eday = get_inverter_data_by_column(token, inverter_sn, "Eday", data_str)
-            bateria = get_inverter_data_by_column(token, inverter_sn, "Cbattery1", data_str)
-
-            registros_eday.extend(eday.get("data", {}).get("column1", []))
-            registros_bateria.extend(bateria.get("data", {}).get("column1", []))
-
-        dados_tratados = tratar_dados_energia(
-            {"data": {"column1": registros_eday}},
-            {"data": {"column1": registros_bateria}}
-        )
-
-        return jsonify(dados_tratados)
+        return jsonify({
+            "consumo_diario_kwh": cons_dia,
+            "consumo_semanal_kwh": cons_semana,
+            "consumo_mensal_kwh": cons_mes,
+            "energia_diaria_kwh": eday,
+            "energia_mensal_kwh": emonth,
+            "bateria": bat,
+        })
     except Exception as e:
+        traceback.print_exc()
+        return jsonify({"erro": str(e)}), 500
+
+@app.get('/dados/bateria_agora')
+async def bateria_agora():
+    try:
+        client = await GoodweClient.create("eu")
+        bat = await client.cur_bat()
+        await client.close()
+        return jsonify({"data": bat})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"erro": str(e)}), 500
+
+@app.get('/dados/consumo_agora')
+async def consumo_agora():
+    try:
+        client = await GoodweClient.create("eu")
+        pv, bat, meter, load, charge = await client.plant_data(client.cur_time())
+        await client.close()
+        return jsonify({"data": load[-1][1]})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"erro": str(e)}), 500
+
+@app.get('/dados/producao_agora')
+async def producao_agora():
+    try:
+        client = await GoodweClient.create("eu")
+        gen = await client.cur_gen()
+        await client.close()
+        return jsonify({"data": gen})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"erro": str(e)}), 500
+
+@app.get('/dados')
+async def dados():
+    try:
+        client = await GoodweClient.create("eu")
+        pv, bat, meter, load, charge = await client.plant_data(client.cur_time())
+        def to_ser(x):
+            return list(map(lambda d: (d[0].isoformat(), d[1]), x))
+        await client.close()
+        return jsonify({
+            "pv": to_ser(pv),
+            "bat": to_ser(bat),
+            "meter": to_ser(meter),
+            "load": to_ser(load),
+            "charge": to_ser(charge),
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"erro": str(e)}), 500
+
+status_tomada = {
+    "economia": True,
+    "ligada": None
+}
+
+@app.post("/tomada/set_economia")
+async def set_economia():
+    state = request.args.get("state", "").lower()
+    if state not in ["on", "off"]:
+        return jsonify({"erro": f"\"{state}\" não é um estado válido"}), 400
+    setstate = state == "on"
+    try:
+        status_tomada["economia"] = setstate
+        status_tomada["ligada"] = None
+        return jsonify({}), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"erro": str(e)}), 500
+
+@app.get("/tomada/get_economia")
+async def get_economia():
+    return jsonify({"state": "on" if status_tomada["economia"] else "off"})
+
+@app.post("/tomada/set")
+async def tomada_set():
+    state = request.args.get("state", "").lower()
+    if state not in ["on", "off"]:
+        return jsonify({"erro": f"\"{state}\" não é um estado válido"}), 400
+    setstate = state == "on"
+    try:
+        d, status = await set_tomada(setstate)
+        status_tomada["economia"] = False
+        status_tomada["ligada"] = setstate
+        return jsonify(d), status
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"erro": str(e)}), 500
+
+@app.get("/tomada/get")
+async def tomada_get():
+    try:
+        d, status = await get_tomada()
+        return jsonify(d), status
+    except Exception as e:
+        traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
 
 if __name__ == '__main__':

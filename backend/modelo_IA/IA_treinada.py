@@ -11,7 +11,7 @@ import os
 '''
 procura todos os arquivos de dados xls na pasta e cria uma lista com os nomes desses arquivos
 '''
-caminho_pasta = "dados_Goodwe"
+caminho_pasta = os.path.join(os.path.dirname(__file__), "dados_Goodwe")
 arquivos = glob.glob(os.path.join(caminho_pasta, "*.xls")) + glob.glob(os.path.join(caminho_pasta, "*.xlsx"))
 
 
@@ -80,7 +80,6 @@ marca para desligar standby (valor 1) se:
 caso contrario, marca 0 (manter ligado)
 '''
 df["deve_desligar"] = ((df["load"] <= 400)).astype(int)
-
 
 '''
 separa dados para treinar IA
@@ -179,8 +178,8 @@ funções para backend
 4. calculo economia de energia
 '''
 
-def desliga_ou_liga(hora, load):
-    return modelo.predict([[hora, load]])[0] == 1
+def deve_desligar(hora, load):
+    return modelo.predict(pd.DataFrame({"hora": [hora], "load": [load]}))[0] == 1
 
 
 def calcular_economia(load_atual, deve_desligar, intervalo_minutos=5, preco_kwh=0.65):
@@ -222,5 +221,3 @@ def calcular_economia(load_atual, deve_desligar, intervalo_minutos=5, preco_kwh=
         'economia_kwh': round(economia_kwh, 4),
         'economia_reais': round(economia_reais, 4)
     }
-
-
