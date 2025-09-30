@@ -12,7 +12,7 @@ app = Quart(__name__)
 
 dotenv.load_dotenv()
 
-@app.get('/assistente')
+@app.get('/api/assistente')
 async def dados_assistente():
     try:
         client = await GoodweClient.create("eu")
@@ -41,7 +41,7 @@ async def dados_assistente():
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
 
-@app.get('/dados/bateria_agora')
+@app.get('/api/dados/bateria_agora')
 async def bateria_agora():
     try:
         client = await GoodweClient.create("eu")
@@ -52,7 +52,7 @@ async def bateria_agora():
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
 
-@app.get('/dados/consumo_agora')
+@app.get('/api/dados/consumo_agora')
 async def consumo_agora():
     try:
         client = await GoodweClient.create("eu")
@@ -63,7 +63,7 @@ async def consumo_agora():
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
 
-@app.get('/dados/producao_agora')
+@app.get('/api/dados/producao_agora')
 async def producao_agora():
     try:
         client = await GoodweClient.create("eu")
@@ -74,7 +74,7 @@ async def producao_agora():
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
 
-@app.get('/graficos/econ_semana')
+@app.get('/api/graficos/econ_semana')
 async def econ_semana():
     DIAS = [
         "segunda-feira",
@@ -108,7 +108,7 @@ async def econ_semana():
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
 
-@app.get('/dados')
+@app.get('/api/dados')
 async def dados():
     try:
         client = await GoodweClient.create("eu")
@@ -132,7 +132,7 @@ status_tomada = {
     "ligada": None
 }
 
-@app.post("/tomada/set_economia")
+@app.post("/api/tomada/set_economia")
 async def set_economia():
     state = request.args.get("state", "").lower()
     if state not in ["on", "off"]:
@@ -146,11 +146,11 @@ async def set_economia():
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
 
-@app.get("/tomada/get_economia")
+@app.get("/api/tomada/get_economia")
 async def get_economia():
     return jsonify({"state": "on" if status_tomada["economia"] else "off"})
 
-@app.post("/tomada/set")
+@app.post("/api/tomada/set")
 async def tomada_set():
     state = request.args.get("state", "").lower()
     if state not in ["on", "off"]:
@@ -165,7 +165,7 @@ async def tomada_set():
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
 
-@app.get("/tomada/get")
+@app.get("/api/tomada/get")
 async def tomada_get():
     try:
         d, status = await get_tomada()

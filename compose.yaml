@@ -1,28 +1,33 @@
 networks:
-  base:
+  main:
 
 services:
   backend:
     image: goodwe_backend:latest
     networks:
-      - base
+      - main
     environment:
       - BROKER_HOST=http://broker:8081
     restart: unless-stopped
   tomada:
     image: goodwe_tomada:latest
     networks:
-      - base
-    expose:
-      - 8000:8000
+      - main
     environment:
       - BROKER_HOST=http://broker:8081
       - BACKEND_HOST=http://backend:8000
     restart: unless-stopped
   broker:
     image: goodwe_broker:latest
-    expose:
-      - 8080:8080
+    ports:
+      - "0.0.0.0:8080:8080"
     networks:
-      - base
+      - main
+    restart: unless-stopped
+  server:
+    networks:
+      - main
+    ports:
+      - 3000:8000
+    image: goodwe_webserver
     restart: unless-stopped
