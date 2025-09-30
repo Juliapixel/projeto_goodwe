@@ -1,1 +1,7 @@
 .env
+_pycache_/
+.venv
+*.pyc 
+.streamlit/
+node_modules/
+vendor/
