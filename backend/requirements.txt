@@ -5,3 +5,4 @@ hypercorn==0.17.3
 pandas==2.3.2
 scikit-learn==1.7.2
 xlrd==2.0.2
+pyjwt==2.10.1

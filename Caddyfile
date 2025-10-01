@@ -1,6 +1,8 @@
 :8000 {
     root /var/www
 
-    reverse_proxy /api/* backend:8000
+    reverse_proxy /api/* backend:8000 {
+        header_down access-control-allow-origin "*"
+    }
     file_server
 }

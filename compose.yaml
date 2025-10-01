@@ -20,7 +20,7 @@ services:
   broker:
     image: goodwe_broker:latest
     ports:
-      - "0.0.0.0:8080:8080/udp"
+      - "0.0.0.0:8000:8080/udp"
     environment:
       - RUST_LOG=debug
     networks:
