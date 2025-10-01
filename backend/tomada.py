@@ -30,7 +30,7 @@ async def main():
         await asyncio.sleep(10)
 
         try:
-            resp = await http.get("/tomada/get_economia")
+            resp = await http.get("/api/tomada/get_economia")
             econ = (await resp.json())["state"] == "on"
             if not econ:
                 print("Economia desligada, continuando...")
