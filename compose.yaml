@@ -1,0 +1,35 @@
+networks:
+  main:
+
+services:
+  backend:
+    image: goodwe_backend:latest
+    networks:
+      - main
+    environment:
+      - BROKER_HOST=http://broker:8081
+    restart: unless-stopped
+  tomada:
+    image: goodwe_tomada:latest
+    networks:
+      - main
+    environment:
+      - BROKER_HOST=http://broker:8081
+      - BACKEND_HOST=http://backend:8000
+    restart: unless-stopped
+  broker:
+    image: goodwe_broker:latest
+    ports:
+      - "0.0.0.0:8080:8080/udp"
+    environment:
+      - RUST_LOG=debug
+    networks:
+      - main
+    restart: unless-stopped
+  server:
+    networks:
+      - main
+    ports:
+      - 3000:8000
+    image: goodwe_webserver:latest
+    restart: unless-stopped
