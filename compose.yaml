@@ -20,7 +20,9 @@ services:
   broker:
     image: goodwe_broker:latest
     ports:
-      - "0.0.0.0:8080:8080"
+      - "0.0.0.0:8080:8080/udp"
+    environment:
+      - RUST_LOG=debug
     networks:
       - main
     restart: unless-stopped
@@ -29,5 +31,5 @@ services:
       - main
     ports:
       - 3000:8000
-    image: goodwe_webserver
+    image: goodwe_webserver:latest
     restart: unless-stopped
