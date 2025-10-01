@@ -41,15 +41,6 @@
                         </span>
                     </a>
                 </li>
-                
-                <li class="side-item active">
-                    <a href='/dados.html'>
-                        <i class="fa-solid fa-chart-simple"></i>
-                        <span class="item_description">
-                            Dados gerais
-                        </span>
-                    </a>
-                </li>
             <li class ="side-item active">
                     <a href='/config.html'>
                         <i class="fa-solid fa-gears"></i>
@@ -72,125 +63,184 @@
             </button>
         </div>
     </nav>
-    
+
     <main class="conteudo">
-        
-        <section class="box">  
+
+        <section class="box">
             <h1>
                 Economia de energia
             </h1>
-            <h2> Ativar modo de economia de energia</h2>
+
             <p class="economia_energia_description"> Desliga os dispositivos de baixa prioridade da residêsidencia. </p>
-            <label class="switch">
-            <input type="checkbox" id="modoEconomia" onchange="toggleModo()">
-            <span class="slider"></span>
-            </label>
             <ul id="economia_energia_lista">
-                <li class = "economia_energia_item"> 
-                    <h3> Gráfico de economia mensal </h3>
-                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsum, eligendi fugit. Quae quaerat placeat quos a corporis asperiores voluptatem saepe cumque rem! </p>
-            <canvas id="graficoEconomia"></canvas>
-            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-            <script>
-            const ctx = document.getElementById('graficoEconomia').getContext('2d');
-            const graficoEconomia = new Chart(ctx, {
-            type: 'line',
-            data: {
-            labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
-            datasets: [{
-            label: 'Economia de Energia (kWh)',
-            data: [22, 35, 28, 40, 33, 45], 
-            borderColor: 'black',
-            backgroundColor: 'rgba(255, 0, 0, 0.7)',
-            fill: true,
-            tension: 0,
-            pointStyle: 'circle',
-            pointRadius: 5,
-            pointBackgroundColor: 'red'
-            }]
-            },
-            options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                display: true
-            },
-            title: {
-                display: true,
-                text: 'Economia Mensal de Energia com Modo Econômico'
-            }
-            },
-            scales: {
-                y: {
-                beginAtZero: true,
-            title: {
-            display: true,
-            text: 'kWh Economizados'
-            }
-            },
-            x: {
-            title: {
-                display: true,
-                text: 'Mês'
-                }
-            }
-        }
-    }
-});
-        </script>
-            </li>
-            <li class="economia_energia_item"> 
-                <h3> Gráfico de economia diária </h3>
-                <p>Lorem ipsum dolor, sit amet consectetur adipisicing elit. Corrupti accusantium doloribus unde quis assumenda culpa nemo iure illum!</p>
-        <canvas id="graficoHorario"></canvas>
-<script>
-const ctxHorario = document.getElementById('graficoHorario').getContext('2d');
-const graficoHorario = new Chart(ctxHorario, {
-    type: 'line',
-    data: {
-    labels: ['00h', '01h', '02h', '03h', '04h', '05h', '06h', '07h', '08h', '09h', '10h', '11h', '12h', '13h', '14h', '15h', '16h', '17h', '18h', '19h', '20h', '21h', '22h', '23h'],
-    datasets: [{
-        label: 'Economia de Energia (kWh)',
-        data: [0.2, 0.15, 0.1, 0.1, 0.12, 0.18, 0.25, 0.4, 0.6, 0.8, 1.0, 1.2, 1.1, 1.0, 0.9, 0.85, 0.8, 0.75, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2],
-        borderColor: 'black',
-        backgroundColor: 'rgba(255, 0, 0, 0.7)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 4,
-        pointBackgroundColor: 'red'
-        }]
-    },
-    options: {
-    responsive: true,
-    plugins: {
-        legend: {
-            display: true
-        },
-        title: {
-            display: true,
-            text: 'Economia de Energia por Horário (kWh)'
-        }
-    },
-    scales: {
-        y: {
-            beginAtZero: true,
-            title: {
-            display: true,
-            text: 'kWh Economizados'
-            }
-        },
-        x: {
-            title: {
-            display: true,
-            text: 'Horário'
-                }
-            }
-        }
-    }
-});
-</script>
-</li>
-<ul>
+                <li class = "economia_energia_item">
+                    <h3> Gráfico de economia semanal </h3>
+                    <p>Energia que era desperdiçada com aparelhos em standby e agora não é mais</p>
+                    <canvas id="graficoEconomia"></canvas>
+                    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                    <script>
+                        URL_BASE = 'https://goodwe.juliapixel.com'
+                        async function chamarDados (URL_BASE) {
+                            let response = await fetch(URL_BASE + '/api/graficos/econ_semana')
+                            if (!response.ok)
+                                throw new Error(`ERRO HTTP: ${response.status}`);
+                            return await response.json()
+                        }
+
+                        async function desenharGrafico() {
+                            let data = await chamarDados(URL_BASE)
+                            let labels = data.map((d) => d[0])
+                            let values = data.map((d) => d[1])
+                            let ctx = document.getElementById('graficoEconomia').getContext('2d');
+                            let grafico_econ_semanal = new Chart (ctx,{
+                                type: 'bar',
+                                data: {
+                                    labels: labels,
+                                    datasets: [{
+                                        label: 'Economia de Energia (kWh)',
+                                        data: values,
+                                        borderColor: 'black',
+                                        backgroundColor: 'rgba(255, 0, 0, 0.7)',
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    plugins: {
+                                        legend: {
+                                            display: true
+                                        },
+                                        title: {
+                                            display: true,
+                                            text: 'Economia dos últimos 7 dias de Energia com Modo Econômico'
+                                        }
+                                    },
+                                    scales: {
+                                        y: {
+                                        beginAtZero: true,
+                                        title: {
+                                            display: true,
+                                            text: 'kWh Economizados'
+                                        }
+                                        },
+                                        x: {
+                                        title: {
+                                            display: true,
+                                            text: 'Dias da semana'
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                        desenharGrafico()
+                    </script>
+                </li>
+                <li>
+                    <ul id="dados_gerais_lista">
+                        <li class="dados_gerais_item"><h3 style="text-align: center;">Consumo atual </h3>
+                        <canvas id="graficoConsumo"></canvas>
+                        </li>
+                            <p> </p>
+                        <li class="dados_gerais_item"> <h3 style="text-align: center;">Produção atual</h3>
+                        <canvas id="graficoProducao"></canvas> </li>
+                        <li class="dados_gerais_item"><h3 style="text-align: center;">Carga da bateria</h3>
+                        <div class="bateria-container">
+                            <div class="bateria">
+                                <div class="nivel" id="nivelBateria"></div>
+                            </div>
+                        <span id="porcentagemBateria"></span>
+                        </div>
+                        </li>
+                    </ul>
+                </li>
+                <script>
+                    async function getDado(dado) {
+                        let resp = await fetch("https://goodwe.juliapixel.com/api/dados/" + dado)
+                        if (!resp.ok) {
+                            throw new Error(`ERRO HTTP: ${response.status}`);
+                        }
+                        return (await resp.json()).data
+                    }
+
+                    async function desenharConsumo() {
+                        let cons = await getDado("consumo_agora")
+                        new Chart(document.getElementById('graficoConsumo').getContext('2d'), {
+                            type: 'bar',
+                            data: {
+                                labels: ['Consumo Atual'],
+                                datasets: [{
+                                    label: 'W',
+                                    data: [cons],
+                                    backgroundColor: 'rgba(255, 0, 0, 0.7)',
+                                    borderColor: 'rgba(255, 0, 0, 0.7)',
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    y: {
+                                        beginAtZero: true
+                                    }
+                                }
+                            },
+                        });
+                    }
+
+                    async function desenharProducao() {
+                        let prod = await getDado("producao_agora")
+                        console.log(prod)
+                        new Chart(document.getElementById('graficoProducao').getContext('2d'), {
+                            type: 'bar',
+                            data: {
+                                labels: ['Produção'],
+                                datasets: [{
+                                    label: 'W',
+                                    data: [prod],
+                                    backgroundColor: 'rgba(255, 0, 0, 0.7)',
+                                    borderColor: 'rgba(255, 0, 0, 0.7)',
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    y: {
+                                        beginAtZero: true
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    async function desenharBateria() {
+                        const carga = await getDado("bateria_agora")
+                        // Indicador de bateria
+                        const nivelBateria = document.getElementById('nivelBateria');
+                        const textoBateria = document.getElementById('porcentagemBateria');
+
+                        nivelBateria.style.width = carga + '%';
+                        textoBateria.textContent = carga + '%';
+
+                        // Muda cor conforme nível
+                        if (carga > 60) {
+                            nivelBateria.style.backgroundColor = 'rgba(0, 180, 0, 0.7)';
+                        } else if (carga > 30) {
+                            nivelBateria.style.backgroundColor = 'rgba(255, 165, 0, 0.7)';
+                        } else {
+                            nivelBateria.style.backgroundColor = 'rgba(255, 0, 0, 0.7)';
+                        }
+                    }
+
+                    document.addEventListener('DOMContentLoaded', () => {
+                        desenharBateria()
+                        desenharConsumo()
+                        desenharProducao()
+                    });
+                </script>
+            <ul>
     </section>
     </main>
     </div>
