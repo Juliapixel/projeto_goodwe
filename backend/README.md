@@ -46,10 +46,8 @@ hypercorn app.py
 {
     "consumo_diario_kwh": float,
     "consumo_semanal_kwh": float,
-    "consumo_mensal_kwh": float,
     "economia_diaria_kwh": float,
     "economia_semanal_kwh": float,
-    "economia_mensal_kwh": float,
     "prod_diaria_kwh": float,
     "prod_mensal_kwh": float,
     "bateria": float,
