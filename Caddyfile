@@ -4,5 +4,8 @@
     reverse_proxy /api/* backend:8000 {
         header_down access-control-allow-origin "*"
     }
+
+    encode
+    try_files {path} /index.html
     file_server
 }
