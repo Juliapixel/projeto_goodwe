@@ -19,4 +19,4 @@ Goodwe e dos assistentes virtuais
 
 ### [`/frontend`](frontend)
 
-Contém o código do frontend em XXXXX
+Contém o código do frontend em React
