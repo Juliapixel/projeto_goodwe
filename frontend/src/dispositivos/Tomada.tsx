@@ -1,6 +1,7 @@
 import Badge from "../components/Badge";
 import GoodweW from "../assets/GoodWe_W.svg";
 import TuyaT from "../assets/tuya_t.svg";
+import Button from "../components/Button";
 
 export type TomadaState = "on" | "off" | "unknown";
 export type TomadaCompany = "goodwe" | "tuya";
@@ -48,10 +49,17 @@ export default function Tomada({ id, name, state, company }: TomadaProps) {
                 >
                     {name}
                 </h2>
-                <img src={tomadasImg[company]} className="inline h-8" />
+                <img
+                    src={tomadasImg[company]}
+                    className="inline h-8 pointer-events-none select-none"
+                />
             </div>
             <div className="h-36 p-2 border rounded-lg border-shis-700 bg-shis-800">
-                <img src="/tomada.webp" className="h-full mx-auto" />
+                <img
+                    src="/tomada.webp"
+                    alt="Tomada inteligente"
+                    className="h-full mx-auto pointer-events-none select-none"
+                />
             </div>
             <div>
                 <div className="grid grid-cols-2 gap-2">
@@ -60,6 +68,7 @@ export default function Tomada({ id, name, state, company }: TomadaProps) {
                         dotColor={col}
                         className="w-full"
                     />
+                    <Button disabled>Ligar</Button>
                 </div>
                 <p
                     className="w-full pt-2 text-xs text-shis-300/50 overflow-hidden text-ellipsis whitespace-nowrap"

@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
+@font-face {
+    font-family: Montserrat;
+    src: url("/Montserrat.ttf");
+}
+
 @theme {
+    --font-sans: Montserrat;
     --color-shis-950: #20202b;
     --color-shis-900: #242432;
     --color-shis-800: #29293a;
@@ -14,13 +20,13 @@
 }
 
 :root {
-    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    /* font-family: --font-sans, system-ui, Avenir, Helvetica, Arial, sans-serif; */
     line-height: 1.5;
     font-weight: 400;
 
     min-height: 100vh;
 
-    color-scheme: light dark;
+    color-scheme: dark;
     /* color: rgba(255, 255, 255, 0.87); */
     background-color: --color-shis-950;
 

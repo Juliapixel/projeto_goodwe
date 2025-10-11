@@ -9,7 +9,7 @@ const members: { name: string; rm: number }[] = [
 export default function Footer() {
     const rows = members.map(({ name, rm }) => {
         return (
-            <tr className="max-w-fit">
+            <tr className="max-w-fit" key={rm}>
                 <td>{name}</td>
                 <td className="pl-6">RM: {rm}</td>
             </tr>
@@ -18,7 +18,9 @@ export default function Footer() {
     return (
         <>
             <footer className="grid gap-6 md:gap-0 md:grid-cols-2 w-screen py-6 border-t border-shis-700 bg-shis-900  text-shis-400">
-                <table className="max-w-fit mx-auto">{rows}</table>
+                <table className="max-w-fit mx-auto">
+                    <tbody>{rows}</tbody>
+                </table>
                 <div className="mx-auto">
                     <p>
                         <a
