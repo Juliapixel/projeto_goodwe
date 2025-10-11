@@ -1,0 +1,16 @@
+{
+    "singleQuote": false,
+    "jsxSingleQuote": false,
+    "endOfLine": "lf",
+    "semi": true,
+    "useTabs": false,
+    "tabWidth": 4,
+    "overrides": [
+        {
+            "files": ["*.json", "*.yaml", "*.yml"],
+            "options": {
+                "tabWidth": 2
+            }
+        }
+    ]
+}
