@@ -14,7 +14,7 @@ export default function Button({
     if (rest.disabled) {
         defaultClass = twMerge(
             defaultClass,
-            "bg-shis-700 text-shis-500 hover:bg-shis-700 border-shis-500 cursor-default",
+            "bg-shis-700 text-shis-400 hover:bg-shis-700 cursor-default",
         );
     }
     return (
