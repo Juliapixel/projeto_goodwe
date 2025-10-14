@@ -11,7 +11,7 @@ use common::{DisconnectReason, MessagePayload, PlugMessage};
 use dotenvy_macro::{dotenv, option_dotenv};
 use embassy_futures::select::{Either, select, select3};
 use embassy_net::{
-    Config, DhcpConfig, IpListenEndpoint, Runner, Stack, StackResources,
+    Config, DhcpConfig, IpAddress, IpListenEndpoint, Runner, Stack, StackResources,
     udp::{PacketMetadata, RecvError, SendError, UdpSocket},
 };
 use embassy_sync::{
@@ -39,8 +39,17 @@ pub struct WifiHandler<'a> {
     runner: Mutex<NoopRawMutex, Runner<'a, WifiDevice<'a>>>,
 }
 
-const BROKER_IP: &str = dotenv!("BROKER_IP");
-const BROKER_PORT: &str = dotenv!("BROKER_PORT");
+const BROKER_IP: Option<&str> = option_dotenv!("BROKER_IP");
+const BROKER_HOST: &str = match option_dotenv!("BROKER_HOST") {
+    Some(host) => host,
+    None => "goodwe.juliapixel.com",
+};
+const BROKER_PORT: u16 = {
+    match u16::from_str_radix(dotenv!("BROKER_PORT"), 10) {
+        Ok(port) => port,
+        Err(_) => panic!("BROKER_PORT env variable must be a u16"),
+    }
+};
 
 const SSID_PASSWORD: (&str, &str) = (dotenv!("SSID"), dotenv!("PASSWORD"));
 
@@ -514,14 +523,35 @@ async fn broker_task(stack: Stack<'_>) -> ! {
     })
     .unwrap();
 
-    let broker_ip = Ipv4Addr::from_str(BROKER_IP).unwrap();
-    let broker_port = BROKER_PORT.parse::<u16>().unwrap();
+    let broker_ip = match stack
+        .dns_query(BROKER_HOST, smoltcp::wire::DnsQueryType::A)
+        .await
+    {
+        Ok(a) => {
+            debug!("[broker] got broker IP from DNS: {}", &a);
+            a.first().copied().map(|a| {
+                let IpAddress::Ipv4(addr) = a;
+                addr
+            })
+        }
+        Err(e) => {
+            error!("[broker] DNS query failed: {}", e);
+            None
+        }
+    }
+    .or_else(|| BROKER_IP.and_then(|ip| Ipv4Addr::from_str(ip).ok()));
 
     info!(
         "[broker] Starting new connection to {}:{}",
-        broker_ip, broker_port
+        broker_ip, BROKER_PORT
     );
 
-    let mut client = Client::new(SocketAddrV4::new(broker_ip, broker_port), sock);
-    client.run().await;
+    if let Some(ip) = broker_ip {
+        let mut client = Client::new(SocketAddrV4::new(ip, BROKER_PORT), sock);
+        client.run().await;
+    } else {
+        error!("[broker] no IP available for the message broker.");
+        #[allow(clippy::empty_loop)]
+        core::future::pending::<()>().then(async |_| loop {}).await
+    }
 }
