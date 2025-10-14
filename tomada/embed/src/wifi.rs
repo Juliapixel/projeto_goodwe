@@ -529,10 +529,14 @@ async fn broker_task(stack: Stack<'_>) -> ! {
     {
         Ok(a) => {
             debug!("[broker] got broker IP from DNS: {}", &a);
-            a.first().copied().map(|a| {
+            let addr = a.first().copied().map(|a| {
                 let IpAddress::Ipv4(addr) = a;
                 addr
-            })
+            });
+            if addr.is_none() {
+                warn!("[broker] DNS A query for {} returned no IPs", BROKER_HOST);
+            }
+            addr
         }
         Err(e) => {
             error!("[broker] DNS query failed: {}", e);
