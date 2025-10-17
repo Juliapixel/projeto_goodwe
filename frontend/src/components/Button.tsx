@@ -7,15 +7,9 @@ export default function Button({
     ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement>) {
     let defaultClass =
-        "bg-shis-900 hover:bg-shis-800 rounded-full border border-shis-600";
+        "bg-shis-900 disabled:bg-shis-700 not-disabled:hover:bg-shis-800 rounded-full disabled:text-shis-400 border border-shis-600 disabled:cursor-default";
     if (rest.onClick) {
         defaultClass = twMerge(defaultClass, "cursor-pointer");
-    }
-    if (rest.disabled) {
-        defaultClass = twMerge(
-            defaultClass,
-            "bg-shis-700 text-shis-400 hover:bg-shis-700 cursor-default",
-        );
     }
     return (
         <button className={twMerge(defaultClass, className)} {...rest}>
