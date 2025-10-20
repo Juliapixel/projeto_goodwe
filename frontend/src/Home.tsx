@@ -47,7 +47,7 @@ function MultiChart() {
     return (
         <ResponsiveContainer>
             <LineChart data={data}>
-                <CartesianGrid stroke="#ffffff30" strokeDasharray={"3 3"} />
+                <CartesianGrid stroke="#e8e5e5b5" strokeDasharray={"3 3"} />
                 <Line
                     dataKey={"value"}
                     name="Consumo (W)"
@@ -58,12 +58,12 @@ function MultiChart() {
                 <Line
                     dataKey={"two"}
                     name="Geração (W)"
-                    stroke="orange"
+                    stroke="red"
                     dot={false}
                     strokeWidth={2}
                 />
-                <XAxis dataKey={"time"} stroke="#ffffff90" />
-                <YAxis stroke="#ffffff90" />
+                <XAxis dataKey={"time"} stroke="#38373786" />
+                <YAxis stroke="#38373786" />
                 <Legend align="right" />
                 <Tooltip animationDuration={100} content={tooltipRender} />
             </LineChart>
@@ -92,9 +92,9 @@ function Economia() {
     return (
         <ResponsiveContainer>
             <BarChart data={data}>
-                <CartesianGrid stroke="#ffffff30" strokeDasharray={"3 3"} />
-                <XAxis dataKey={"day"} stroke="#ffffff90" />
-                <YAxis stroke="#ffffff90" />
+                <CartesianGrid stroke="#e8e5e5b5" strokeDasharray={"3 3"} />
+                <XAxis dataKey={"day"} stroke="#38373786" />
+                <YAxis stroke="#38373786" />
                 <Legend align="right" />
                 <Tooltip animationDuration={100} content={tooltipRender} />
                 <Bar dataKey={"value"} name={"Economia (kWh)"} fill="red" />
