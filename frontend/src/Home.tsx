@@ -13,7 +13,6 @@ import {
 } from "recharts";
 
 function tooltipRender(props: TooltipContentProps<number, string>) {
-    console.log(props);
     const values = props.payload.map((p) => {
         return (
             <div>
@@ -42,7 +41,6 @@ function MultiChart() {
             value: Math.sin(i / 5) * 0.5 + Math.sin(i / 20),
             two: Math.sin(i / 5) * 0.1 - Math.sin(i / 50),
         };
-        console.log(data[i]);
     }
     return (
         <ResponsiveContainer>

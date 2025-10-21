@@ -1,3 +1,5 @@
+import { Link } from "react-router";
+
 const members: { name: string; rm: number }[] = [
     { name: "Allan de Souza Cardoso", rm: 561721 },
     { name: "Eduardo Bacelar Rudner", rm: 564925 },
@@ -23,20 +25,14 @@ export default function Footer() {
                 </table>
                 <div className="mx-auto">
                     <p>
-                        <a
-                            className="underline"
-                            href="https://github.com/Juliapixel/projeto_goodwe"
-                        >
-                            Lorem
-                        </a>
+                        <Link className="underline" to="/">
+                            Home
+                        </Link>
                     </p>
                     <p>
-                        <a
-                            className="underline"
-                            href="https://github.com/Juliapixel/projeto_goodwe"
-                        >
-                            Ipsum
-                        </a>
+                        <Link className="underline" to="/demo">
+                            Demo
+                        </Link>
                     </p>
                     <p>
                         <a

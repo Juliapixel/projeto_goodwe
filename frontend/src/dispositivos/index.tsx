@@ -1,5 +1,6 @@
 import Tomada, { type TomadaCompany, type TomadaState } from "./Tomada";
 
+// TODO: pegar do backend
 const tomadas = Array.from({ length: 10 }, () => {
     return {
         id: crypto.randomUUID(),
@@ -9,6 +10,7 @@ const tomadas = Array.from({ length: 10 }, () => {
         company: (["tuya", "goodwe"] as TomadaCompany[])[
             Math.round(Math.random())
         ],
+        economy: false,
     };
 });
 
@@ -17,12 +19,14 @@ tomadas[0] = {
     id: "338c1c8a-c3a2-4715-be92-8911248bbb8c",
     company: "goodwe",
     state: "off",
+    economy: false,
 };
 
 export default function Dispositivos() {
     const t = tomadas.map((d, i) => (
         <Tomada
             state={d.state}
+            economy={d.economy}
             id={d.id}
             key={d.id}
             name={`Tomada ${i + 1}`}
