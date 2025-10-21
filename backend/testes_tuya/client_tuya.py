@@ -1,101 +1,119 @@
-import os
 import asyncio
-from typing import Any, Dict, List, Optional
+import time
+import hmac
+import hashlib
+import base64
+from datetime import datetime, timezone, timedelta
+import aiohttp
 
-# Tenta importar o SDK Tuya 
-try:
-    from tuya_iot import TuyaOpenAPI
-except Exception:
-    TuyaOpenAPI = None  # se não instalado, o código avisará ao criar o client
 
-# Lê variáveis de ambiente (defina em .env)
-TUYA_CLIENT_ID = os.getenv("TUYA_CLIENT_ID", "")
-TUYA_CLIENT_SECRET = os.getenv("TUYA_CLIENT_SECRET", "")
-TUYA_REGION = os.getenv("TUYA_REGION", "eu")  # ex: eu, us, asia
+class TuyaClient():
+    ACCESS_ID = "7gr7nrajngaer7tnp9ds"
+    ACCESS_SECRET = "ea87d02231034d22950a09e7c0df1cf9"
+    REGION = "us"
+    DEVICE_ID = "eb9efd0da2bd405863ks0k"
+    API_ENDPOINT = f"https://openapi.tuya{REGION}.com"
+    TIMEZONE = timezone(timedelta(hours=-3))
 
-# Base URLs por região (ajuste se necessário)
-REGION_BASES = {
-    "eu": "https://openapi.tuyaeu.com",
-    "us": "https://openapi.tuyaus.com",
-    "asia": "https://openapi.tuyacn.com",
-}
-
-class TuyaClient:
-    """
-    Cliente simples para Tuya Cloud baseado no SDK.
-    Métodos principais:
-      - create(): inicializa/ conecta ao SDK
-      - close(): limpa (se necessário)
-      - get_device_status(device_id): retorna payload completo do device (inclui 'dps')
-      - get_device_dps(device_id): retorna apenas o dps dict (útil para descobrir keys)
-      - get_device_power(device_id): tenta extrair consumo instantâneo (W)
-    """
-
-    def __init__(self, base_url: Optional[str] = None):
-        # escolhe base pela região se base_url não for passada
-        self.base_url = base_url or REGION_BASES.get(TUYA_REGION, REGION_BASES["eu"])
-        self._api: Optional[TuyaOpenAPI] = None
+    client: aiohttp.ClientSession
+    token: str
 
     @classmethod
     async def create(cls):
-        """
-        Cria a instância e conecta ao SDK.
-        O SDK é síncrono, por isso usamos to_thread para não bloquear o loop async.
-        """
         self = cls()
-        if TuyaOpenAPI is None:
-            raise RuntimeError("SDK tuya-iot-py-sdk não encontrado. Instale com: pip install tuya-iot-py-sdk")
-
-        def init_and_connect():
-            api = TuyaOpenAPI(self.base_url, TUYA_CLIENT_ID, TUYA_CLIENT_SECRET)
-            api.connect()
-            return api
-
-        # roda a inicialização em thread para não travar o loop
-        self._api = await asyncio.to_thread(init_and_connect)
+        self.client = aiohttp.ClientSession(base_url=self.API_ENDPOINT)
+        try:
+            self.token = await self.__get_token()
+        except Exception:
+            await self.client.close()
+            raise
         return self
 
     async def close(self):
-        # SDK geralmente não precisa de close; mantenho método para simetria com GoodweClient
-        self._api = None
+        await self.client.close()
 
-    async def get_device_status(self, device_id: str) -> Dict[str, Any]:
+    def _calculate_sign(self, body: object = None, use_token: bool = False) -> tuple[str, str]:
         """
-        Retorna o payload do endpoint /v1.0/devices/{device_id}/status
-        Ex.: {'result': {'dps': {...}, ...}, ...}
+        Construção da string para assinatura:
+        - token ainda não obtido (token endpoint): client_id + t [+ body]
+        - com token: client_id + access_token + t [+ body]
+        Body (quando presente) deve ser JSON sem espaços significativos.
         """
-        if self._api is None:
-            raise RuntimeError("TuyaClient não inicializado. Chame TuyaClient.create()")
-        # a chamada do SDK pode ser feita via método get; executamos em thread
-        def sync_get():
-            return self._api.get(f"/v1.0/devices/{device_id}/status")
-        res = await asyncio.to_thread(sync_get)
-        # alguns SDKs retornam {'result': {...}}; normalizar retornando o 'result' quando existir
-        if isinstance(res, dict) and "result" in res:
-            return res["result"]
-        return res
+        t = str(int(time.time() * 1000))
+        if use_token and getattr(self, "token", None):
+            sign_str = f"{self.ACCESS_ID}{self.token}{t}"
+        else:
+            sign_str = f"{self.ACCESS_ID}{t}"
 
-    async def get_device_dps(self, device_id: str) -> Dict[str, Any]:
-        """Retorna apenas o dps dict (útil para depuração e para achar a chave do consumo)."""
-        status = await self.get_device_status(device_id)
-        dps = status.get("dps", {}) if isinstance(status, dict) else {}
-        return dps
+        if body is not None:
+            # normaliza JSON para assinatura
+            if not isinstance(body, str):
+                body_str = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
+            else:
+                body_str = body
+            sign_str += body_str
 
-    async def get_device_power(self, device_id: str) -> float:
-        """
-        Tenta extrair leitura de potência (W) a partir do dps.
-        Passo recomendado: primeiro chame get_device_dps para ver as keys reais do seu dispositivo.
-        Ajuste possible_keys se necessário.
-        """
-        dps = await self.get_device_dps(device_id)
-        # chaves comuns ou numéricas que alguns devices usam para consumo
-        possible_keys = ["power", "current_power", "instant_power", "18", "17", "21", "22"]
-        for key in possible_keys:
-            if key in dps:
+        mac = hmac.new(self.ACCESS_SECRET.encode("utf-8"), sign_str.encode("utf-8"), hashlib.sha256).digest()
+        sign = base64.b64encode(mac).decode("utf-8")
+        return t, sign
+
+    async def __get_token(self) -> str:
+        t, sign = self._calculate_sign(body=None, use_token=False)
+        headers = {
+            "client_id": self.ACCESS_ID,
+            "sign": sign,
+            "sign_method": "HMAC-SHA256",
+            "t": t
+        }
+
+        resp = await self.client.get("/v1.0/token", params={"grant_type": "1"}, headers=headers)
+        resp.raise_for_status()
+        data = await resp.json()
+
+        if not isinstance(data, dict) or "result" not in data:
+            raise RuntimeError(f"Token request failed, response: {data}")
+        result = data["result"]
+        if "access_token" not in result:
+            raise RuntimeError(f"Token response missing access_token: {data}")
+        return result["access_token"]
+
+    async def get_current_power(self) -> float:
+        """Retorna o consumo atual de energia em watts (procura por 'cur_power')."""
+        t, sign = self._calculate_sign(body=None, use_token=True)
+        headers = {
+            "client_id": self.ACCESS_ID,
+            "access_token": self.token,
+            "sign": sign,
+            "sign_method": "HMAC-SHA256",
+            "t": t
+        }
+
+        resp = await self.client.get(f"/v1.0/devices/{self.DEVICE_ID}/status", headers=headers)
+        resp.raise_for_status()
+        data = await resp.json()
+
+        for status in data.get("result", []):
+            code = status.get("code") or status.get("dpCode")
+            if code in ("cur_power", "power", "current_power"):
                 try:
-                    return float(dps[key])
-                except Exception:
-                    # se não conseguir converter, continua tentando outras keys
-                    pass
-        # fallback: se Tuya fornecer endpoint de energy, pode ser necessário usar outro endpoint.
-        raise RuntimeError(f"Não encontrei leitura de power no dps. Keys encontradas: {list(dps.keys())}")
+                    return float(status.get("value", 0))
+                except (TypeError, ValueError):
+                    return 0.0
+
+        # debug: imprime resposta para identificar o dpCode correto
+        print("cur_power não encontrado. resposta completa (parcial):")
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return 0.0
+
+
+async def main():
+    client = await TuyaClient.create()
+    try:
+        power = await client.get_current_power()
+        print(f"Consumo atual: {power} W")
+    finally:
+        await client.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
