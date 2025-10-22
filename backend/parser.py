@@ -1,34 +1,22 @@
-from datetime import datetime
-from typing import Tuple
+import pandas as pd
+import glob
+import os
 
-def tratar_dados_energia(dados_eday: list[Tuple[datetime, float]], dados_bateria: list[Tuple[datetime, float]]) -> dict:
-    try:
-        hoje = datetime.now()
-        energia_diaria = 0
-        energia_semanal = 0
-        energia_mensal = 0
-        energia_anual = 0
+def carregar_dados() -> pd.DataFrame:
+    caminho = os.path.join("modelo_IA", "dados_Goodwe", "*.xls")
+    arquivos = glob.glob(caminho)
+    dfs = []
 
-        for data, valor in dados_eday:
-            if data.date() == hoje.date():
-                energia_diaria += valor
-            if (hoje - data).days <= 7:
-                energia_semanal += valor
-            if data.month == hoje.month and data.year == hoje.year:
-                energia_mensal += valor
-            if data.year == hoje.year:
-                energia_anual += valor
+    for arq in arquivos:
+        try:
+            df = pd.read_excel(arq, skiprows=2, engine="xlrd")
+            df.columns = ["Time", "PV(W)", "SOC(%)", "Battery(W)", "Grid(W)", "Load(W)"]
+            df["Time"] = pd.to_datetime(df["Time"], format="%d.%m.%Y %H:%M:%S")
+            dfs.append(df)
+        except Exception as e:
+            print(f"Erro ao ler {arq}: {e}")
 
-        print(f"ultima bat: {dados_bateria[-1]}")
-        bateria_hoje = dados_bateria[-1][1]
+    if not dfs:
+        raise FileNotFoundError("Nenhum arquivo de dados encontrado.")
 
-        return {
-            "energia_diaria_kwh": round(energia_diaria, 2),
-            "energia_semanal_kwh": round(energia_semanal, 2),
-            "energia_mensal_kwh": round(energia_mensal, 2),
-            "energia_anual_kwh": round(energia_anual, 2),
-            "bateria_percentual": min(bateria_hoje, 100) if bateria_hoje is not None else None
-        }
-
-    except Exception as e:
-        return {"erro_tratamento": str(e)}
+    return pd.concat(dfs, ignore_index=True).sort_values("Time").reset_index(drop=True)

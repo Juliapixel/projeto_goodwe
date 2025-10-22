@@ -11,7 +11,6 @@ from tomada import get_tomada, set_tomada
 from client import GoodweClient
 
 app = Quart(__name__)
-
 dotenv.load_dotenv()
 
 @app.get('/api/assistente')
@@ -22,9 +21,10 @@ async def dados_assistente():
         eday, emonth = await client.eday_emonth()
         bat = await client.cur_bat()
 
-        dia, semana, mes = await client.report_economia_consumo(0, 6)
+        dia, semana = await client.report_economia_consumo(0, 6)
         cons_dia, econ_dia = dia
         cons_semana, econ_semana = semana
+
         await client.close()
 
         return jsonify({
@@ -55,9 +55,9 @@ async def bateria_agora():
 async def consumo_agora():
     try:
         client = await GoodweClient.create("eu")
-        pv, bat, meter, load, charge = await client.plant_data(client.cur_time())
+        consumo = await client.cur_load()
         await client.close()
-        return jsonify({"data": load[-1][1]})
+        return jsonify({"data": consumo})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
@@ -75,34 +75,25 @@ async def producao_agora():
 
 @app.get('/api/graficos/econ_semana')
 async def econ_semana():
-    DIAS = [
-        "segunda-feira",
-        "terça-feira",
-        "quarta-feira",
-        "quinta-feira",
-        "sexta-feira",
-        "sábado",
-        "domingo"
-    ]
+    DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
     try:
         client = await GoodweClient.create("eu")
         def days_gen():
-                delta = timedelta(6)
-                now = client.cur_time()
-                today = date(now.year, now.month, now.day)
-                cur = today - delta
-                while cur <= today:
-                    yield cur
-                    cur += timedelta(days=1)
-        tasks = []
-        for day in days_gen():
-            tasks.append(asyncio.create_task(client.day_econ(day)))
+            delta = timedelta(6)
+            now = client.cur_time()
+            today = date(now.year, now.month, now.day)
+            cur = today - delta
+            while cur <= today:
+                yield cur
+                cur += timedelta(days=1)
 
-        days = days_gen()
-        data = list(map(lambda d: (DIAS[next(days).weekday()], d), await asyncio.gather(*tasks)))
+        tasks = [asyncio.create_task(client.day_econ(d)) for d in days_gen()]
+        days = list(days_gen())
+        valores = await asyncio.gather(*tasks)
+        data = [(DIAS[d.weekday()], round(v, 2)) for d, v in zip(days, valores)]
+
         await client.close()
         return jsonify(data)
-
     except Exception as e:
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
@@ -111,9 +102,8 @@ async def econ_semana():
 async def dados():
     try:
         client = await GoodweClient.create("eu")
-        pv, bat, meter, load, charge = await client.plant_data(client.cur_time())
-        def to_ser(x):
-            return list(map(lambda d: (d[0].isoformat(), d[1]), x))
+        pv, bat, meter, load, charge = await client.plant_data(client.cur_time().date())
+        def to_ser(x): return [(d.isoformat(), v) for d, v in x]
         await client.close()
         return jsonify({
             "pv": to_ser(pv),
@@ -125,11 +115,6 @@ async def dados():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
-
-status_tomada = {
-    "economia": True,
-    "ligada": None
-}
 
 @app.post("/api/tomada/set_economia")
 async def set_economia():
