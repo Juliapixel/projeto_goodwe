@@ -1,119 +1,65 @@
-import asyncio
-import time
-import hmac
-import hashlib
-import base64
-from datetime import datetime, timezone, timedelta
-import aiohttp
+"""# client_tuya.py
+import os
+from dotenv import load_dotenv
+from tuya_iot import TuyaOpenAPI
 
+load_dotenv()
 
-class TuyaClient():
-    ACCESS_ID = "7gr7nrajngaer7tnp9ds"
-    ACCESS_SECRET = "ea87d02231034d22950a09e7c0df1cf9"
-    REGION = "us"
-    DEVICE_ID = "eb9efd0da2bd405863ks0k"
-    API_ENDPOINT = f"https://openapi.tuya{REGION}.com"
-    TIMEZONE = timezone(timedelta(hours=-3))
+TUYA_CLIENT_ID = os.getenv("TUYA_CLIENT_ID")
+TUYA_CLIENT_SECRET = os.getenv("TUYA_CLIENT_SECRET")
+TUYA_REGION = os.getenv("TUYA_REGION", "us")
+TUYA_DEVICE_ID = os.getenv("TUYA_DEVICE_ID")
 
-    client: aiohttp.ClientSession
-    token: str
+api = TuyaOpenAPI(f"https://openapi.tuya{TUYA_REGION}.com", TUYA_CLIENT_ID, TUYA_CLIENT_SECRET)
+api.connect()  # ✅ sem UID — autenticação de projeto
 
-    @classmethod
-    async def create(cls):
-        self = cls()
-        self.client = aiohttp.ClientSession(base_url=self.API_ENDPOINT)
-        try:
-            self.token = await self.__get_token()
-        except Exception:
-            await self.client.close()
-            raise
-        return self
+print("Token info:", api.token_info)
 
-    async def close(self):
-        await self.client.close()
-
-    def _calculate_sign(self, body: object = None, use_token: bool = False) -> tuple[str, str]:
-        """
-        Construção da string para assinatura:
-        - token ainda não obtido (token endpoint): client_id + t [+ body]
-        - com token: client_id + access_token + t [+ body]
-        Body (quando presente) deve ser JSON sem espaços significativos.
-        """
-        t = str(int(time.time() * 1000))
-        if use_token and getattr(self, "token", None):
-            sign_str = f"{self.ACCESS_ID}{self.token}{t}"
-        else:
-            sign_str = f"{self.ACCESS_ID}{t}"
-
-        if body is not None:
-            # normaliza JSON para assinatura
-            if not isinstance(body, str):
-                body_str = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
-            else:
-                body_str = body
-            sign_str += body_str
-
-        mac = hmac.new(self.ACCESS_SECRET.encode("utf-8"), sign_str.encode("utf-8"), hashlib.sha256).digest()
-        sign = base64.b64encode(mac).decode("utf-8")
-        return t, sign
-
-    async def __get_token(self) -> str:
-        t, sign = self._calculate_sign(body=None, use_token=False)
-        headers = {
-            "client_id": self.ACCESS_ID,
-            "sign": sign,
-            "sign_method": "HMAC-SHA256",
-            "t": t
-        }
-
-        resp = await self.client.get("/v1.0/token", params={"grant_type": "1"}, headers=headers)
-        resp.raise_for_status()
-        data = await resp.json()
-
-        if not isinstance(data, dict) or "result" not in data:
-            raise RuntimeError(f"Token request failed, response: {data}")
-        result = data["result"]
-        if "access_token" not in result:
-            raise RuntimeError(f"Token response missing access_token: {data}")
-        return result["access_token"]
-
-    async def get_current_power(self) -> float:
-        """Retorna o consumo atual de energia em watts (procura por 'cur_power')."""
-        t, sign = self._calculate_sign(body=None, use_token=True)
-        headers = {
-            "client_id": self.ACCESS_ID,
-            "access_token": self.token,
-            "sign": sign,
-            "sign_method": "HMAC-SHA256",
-            "t": t
-        }
-
-        resp = await self.client.get(f"/v1.0/devices/{self.DEVICE_ID}/status", headers=headers)
-        resp.raise_for_status()
-        data = await resp.json()
-
-        for status in data.get("result", []):
-            code = status.get("code") or status.get("dpCode")
-            if code in ("cur_power", "power", "current_power"):
-                try:
-                    return float(status.get("value", 0))
-                except (TypeError, ValueError):
-                    return 0.0
-
-        # debug: imprime resposta para identificar o dpCode correto
-        print("cur_power não encontrado. resposta completa (parcial):")
-        print(json.dumps(data, indent=2, ensure_ascii=False))
+def get_device_current_power(device_id: str) -> float:
+    try:
+        result = api.get(f"/v1.0/devices/{device_id}/status")
+        if not result.get("success"):
+            raise ValueError(f"Erro na API Tuya: {result}")
+        for item in result["result"]:
+            if item["code"] in ["cur_power", "current_power", "power"]:
+                val = float(item["value"])
+                if val > 10000:
+                    val /= 10
+                return val
+        raise KeyError("Campo de potência não encontrado.")
+    except Exception as e:
+        print(f"Falha ao obter potência do dispositivo {device_id}: {e}")
         return 0.0
 
-
-async def main():
-    client = await TuyaClient.create()
-    try:
-        power = await client.get_current_power()
-        print(f"Consumo atual: {power} W")
-    finally:
-        await client.close()
-
-
 if __name__ == "__main__":
-    asyncio.run(main())
+    if not TUYA_DEVICE_ID:
+        print("Defina TUYA_DEVICE_ID no .env para testar.")
+    else:
+        power = get_device_current_power(TUYA_DEVICE_ID)
+        print(f"Potência atual do dispositivo {TUYA_DEVICE_ID}: {power} W")
+"""
+
+from tuya_iot import TuyaOpenAPI
+import os
+from dotenv import load_dotenv
+
+# Carrega variáveis do .env
+load_dotenv()
+
+# Dados do projeto
+client_id = os.getenv("TUYA_CLIENT_ID")
+client_secret = os.getenv("TUYA_CLIENT_SECRET")
+uid = os.getenv("TUYA_UID")
+region = os.getenv("TUYA_REGION", "us")
+device_id = os.getenv("TUYA_DEVICE_ID")
+
+# Inicializa API e conecta com UID
+api = TuyaOpenAPI(f"https://openapi.tuya{region}.com", client_id, client_secret)
+api.connect(uid)
+
+# Verifica se o token foi gerado
+print("Token info:", api.token_info)
+
+# Consulta status do dispositivo
+result = api.get(f"/v1.0/devices/{device_id}/status")
+print("Status do dispositivo:", result)
