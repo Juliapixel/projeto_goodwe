@@ -1,6 +1,6 @@
 import os
-import json
 from dotenv import load_dotenv
+from tuya_connector import TuyaOpenAPI
 
 load_dotenv()
 
@@ -9,52 +9,46 @@ TUYA_CLIENT_SECRET = os.getenv("TUYA_CLIENT_SECRET")
 TUYA_REGION = os.getenv("TUYA_REGION", "us")
 TUYA_DEVICE_ID = os.getenv("TUYA_DEVICE_ID")
 
-REGION_BASES = {
-    "eu": "https://openapi.tuyaeu.com",
-    "us": "https://openapi.tuyaus.com",
-    "cn": "https://openapi.tuyacn.com",
-    "asia": "https://openapi.tuyacn.com",
-}
+api = TuyaOpenAPI(f"https://openapi.tuya{TUYA_REGION}.com", TUYA_CLIENT_ID, TUYA_CLIENT_SECRET)
+api.connect()
 
-base_url = REGION_BASES.get(TUYA_REGION, REGION_BASES["eu"])
+print("Token info:", api.token_info)
+print("Token info:", {
+    "access_token": api.token_info.access_token,
+    "expire_time": api.token_info.expire_time,
+    "refresh_token": api.token_info.refresh_token
+})
 
-try:
-    from tuya_iot import TuyaOpenAPI
-except Exception:
-    print("SDK tuya-iot-py-sdk não encontrado. Rode: pip install tuya-iot-py-sdk")
-    raise SystemExit(1)
-
-api = TuyaOpenAPI(base_url, TUYA_CLIENT_ID, TUYA_CLIENT_SECRET)
-
-try:
-    api.connect()
-    print("Conexão com Tuya OK — credenciais/region aceitas.")
-except Exception as e:
-    print("Falha ao conectar à Tuya:", e)
-    raise SystemExit(1)
-
-def get_device_current_power(device_id: str) -> float:
+def get_device_current_power(device_id: str, force_refresh: bool = True) -> float:
     try:
-        result = api.get(f"/v1.0/devices/{device_id}/status")
+        # Adiciona timestamp para evitar cache
+        endpoint = f"/v1.0/devices/{device_id}/status"
+        
+        if force_refresh:
+            import time
+            endpoint += f"?_t={int(time.time() * 1000)}"
+        
+        result = api.get(endpoint)
+        
         if not result.get("success"):
             raise ValueError(f"Erro na API Tuya: {result}")
+        
         for item in result["result"]:
             if item["code"] in ["cur_power", "current_power", "power"]:
                 val = float(item["value"])
                 if val > 10000:
                     val /= 10
                 return val
+        
         raise KeyError("Campo de potência não encontrado.")
     except Exception as e:
-        print(f"Falha ao obter potência do dispositivo {device_id}: {e}")
+        print(f"Falha ao obter potência: {e}")
         return 0.0
-
+    
 if __name__ == "__main__":
     if not TUYA_DEVICE_ID:
         print("Defina TUYA_DEVICE_ID no .env para testar.")
     else:
         power = get_device_current_power(TUYA_DEVICE_ID)
         print(f"Potência atual do dispositivo {TUYA_DEVICE_ID}: {power} W")
-
-
 
