@@ -44,6 +44,27 @@ def get_device_current_power(device_id: str, force_refresh: bool = True) -> floa
     except Exception as e:
         print(f"Falha ao obter potência: {e}")
         return 0.0
+
+def control_switch(device_id: str, turn_on: bool) -> bool:
+    """
+    Controla a tomada.
+    
+    Args:
+        device_id: ID do dispositivo
+        turn_on: True para ligar, False para desligar
+        
+    Returns:
+        bool: True se sucesso
+    """
+    try:
+        result = api.post(
+            f"/v1.0/devices/{device_id}/commands",
+            {"commands": [{"code": "switch_1", "value": turn_on}]}
+        )
+        return result.get("success", False)
+    except:
+        return False
+    
     
 if __name__ == "__main__":
     if not TUYA_DEVICE_ID:
