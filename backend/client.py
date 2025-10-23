@@ -26,7 +26,7 @@ class GoodweClient:
         return int(self.df["SOC(%)"].iloc[-1])
 
     async def cur_gen(self) -> float:
-        return float(self.df["PV(W)"].iloc[-1])
+        return float(self.df["PV(W)"].iloc[100])
 
     async def cur_load(self) -> float:
         return float(self.df["Load(W)"].iloc[-1])
