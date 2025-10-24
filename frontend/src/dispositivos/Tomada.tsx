@@ -2,7 +2,8 @@ import Badge from "../components/Badge";
 import GoodweW from "../assets/GoodWe_W.svg";
 import TuyaT from "../assets/tuya_t.svg";
 import Button from "../components/Button";
-import { useState } from "react";
+import { useEffect, useState, type MouseEventHandler } from "react";
+import { setTomada } from "../lib";
 
 export type TomadaState = "on" | "off" | "unknown";
 export type TomadaCompany = "goodwe" | "tuya";
@@ -20,9 +21,13 @@ const stateStr: Record<TomadaState, string> = {
 
 export interface TomadaProps {
     id: string;
-    name?: string;
+    name: string;
     state: TomadaState;
     company: TomadaCompany;
+    economy: boolean;
+    dummy?: boolean;
+    onToggle?(isOn: boolean): void;
+    onChangeEcon?(isOn: boolean): void;
 }
 
 function StatusBadge({ state }: { state: TomadaState }) {
@@ -41,16 +46,58 @@ function StatusBadge({ state }: { state: TomadaState }) {
             col = "magenta";
             break;
     }
-    return <Badge text={stateStr[state] ?? "caralho"} dotColor={col} className="w-full" />
+    return (
+        <Badge
+            text={stateStr[state] ?? "caralho"}
+            dotColor={col}
+            className="w-full"
+        />
+    );
 }
 
-export default function Tomada({ id, name, state, company }: TomadaProps) {
-    const [isOn, setIsOn] = useState(state == "on" ? true : state == "off" ? false : undefined)
-    const [localState, setState] = useState(state)
-    const toggle = () => {
-        setIsOn(!isOn);
-        setState(isOn ? "off" : "on")
-    }
+export default function Tomada({
+    id,
+    name,
+    state,
+    economy,
+    company,
+    dummy,
+    onChangeEcon,
+    onToggle,
+}: TomadaProps) {
+    const [localState, setState] = useState(state);
+    // incrivel
+    useEffect(() => setState(state), [state]);
+    const [isOn, setIsOn] = useState(
+        state == "on" ? true : state == "off" ? false : undefined,
+    );
+    const toggle: MouseEventHandler<HTMLButtonElement> = async (e) => {
+        if (dummy) {
+            setIsOn(!isOn);
+            setState(isOn ? "off" : "on");
+            onToggle?.(!isOn);
+            return;
+        }
+        const target = e.currentTarget;
+        target.disabled = true;
+        try {
+            const success = await setTomada(!isOn);
+            if (success) {
+                setIsOn(!isOn);
+                setState(isOn ? "off" : "on");
+                onToggle?.(!isOn);
+            } else {
+                setIsOn(undefined);
+                setState("unknown");
+            }
+        } catch (error) {
+            setIsOn(undefined);
+            setState("unknown");
+            console.error(error);
+        } finally {
+            target.disabled = false;
+        }
+    };
     return (
         <div className="flex flex-col gap-3 p-4 border rounded-2xl from-shis-950 to-shis-900 bg-gradient-to-t border-shis-700">
             <div className="flex flex-row pl-2">
@@ -76,8 +123,25 @@ export default function Tomada({ id, name, state, company }: TomadaProps) {
                 <div className="grid grid-cols-2 gap-2">
                     <StatusBadge state={localState} />
                     <Button onClick={toggle} disabled={isOn === undefined}>
-                        {isOn === undefined ? "Offline" : isOn ? "Desligar" : "Ligar"}
+                        {isOn === undefined
+                            ? "Offline"
+                            : isOn
+                              ? "Desligar"
+                              : "Ligar"}
                     </Button>
+                    <span className="my-auto text-center">
+                        Economia de Energia
+                    </span>
+                    <select
+                        defaultValue={economy.toString()}
+                        className="h-10 text-center rounded-full border border-shis-600 bg-shis-900"
+                        onChange={(e) =>
+                            onChangeEcon?.(e.currentTarget.value === "true")
+                        }
+                    >
+                        <option value={"true"}>Ligada</option>
+                        <option value={"false"}>Desligada</option>
+                    </select>
                 </div>
                 <p
                     className="w-full pt-2 text-xs text-shis-300/50 overflow-hidden text-ellipsis whitespace-nowrap"

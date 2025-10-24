@@ -8,6 +8,7 @@ import Dispositivos from "./dispositivos";
 import Sobre from "./sobre";
 import Dados from "./dados";
 import Fallback from "./Fallback.tsx";
+import Demo from "./demo";
 
 const router = createBrowserRouter([
     {
@@ -20,6 +21,10 @@ const router = createBrowserRouter([
             {
                 path: "/dispositivos",
                 Component: Dispositivos,
+            },
+            {
+                path: "/demo",
+                Component: Demo,
             },
             {
                 path: "/sobre",
