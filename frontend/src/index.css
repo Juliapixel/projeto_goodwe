@@ -4,17 +4,16 @@
     font-family: Montserrat;
     src: url("/Montserrat.ttf");
 }
-
 @theme {
     --font-sans: Montserrat;
-    --color-shis-950: #20202b;
-    --color-shis-900: #242432;
-    --color-shis-800: #29293a;
-    --color-shis-700: #39394e;
-    --color-shis-600: #515168;
-    --color-shis-500: #75758e;
-    --color-shis-400: #a0a0ba;
-    --color-shis-300: #bebed8;
+    --color-shis-950: #e8e8e8b1;
+    --color-shis-900: transparent;
+    --color-shis-800: #ddddde;
+    --color-shis-700: #d9d9df;
+    --color-shis-600: #c1c1c4;
+    --color-shis-500: #6c6c6d;
+    --color-shis-400: #8f8f8f;
+    --color-shis-300: #3b3b3b99;
     --color-shis-200: #d4d4ec;
     --color-shis-100: #dbdbfc;
 }
@@ -26,9 +25,8 @@
 
     min-height: 100vh;
 
-    color-scheme: dark;
-    /* color: rgba(255, 255, 255, 0.87); */
-    background-color: --color-shis-950;
+
+    background: linear-gradient(135deg, #c1c1c1cc, #b7b6b6ee, #d7d5d5da);;
 
     font-synthesis: none;
     text-rendering: optimizeLegibility;
