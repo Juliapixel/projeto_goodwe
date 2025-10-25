@@ -9,7 +9,6 @@ type TomadaStates = {
 }[];
 
 export default function Demo() {
-    const [simulation, setSimulation] = useState(false);
     const [estados, setEstados] = useState<TomadaStates>(
         Array.from({ length: 3 }).map(() => ({
             econ: false,
@@ -44,7 +43,6 @@ export default function Demo() {
     });
 
     const econHandler = (e: boolean) => {
-        if (!simulation) return;
         setEstados(
             estados.map((s) => {
                 if (s.econ) {
@@ -74,17 +72,6 @@ export default function Demo() {
                                 comportamento em determinado horário:
                             </p>
                         </div>
-                        <label className="block text-lg font-bold">
-                            <input
-                                className="mr-2"
-                                type="checkbox"
-                                defaultChecked={false}
-                                onChange={(e) =>
-                                    setSimulation(e.target.checked)
-                                }
-                            />
-                            Simular Economia de Energia
-                        </label>
                     </div>
                     <div className="col-span-2">
                         <LoadChart onClickEcon={econHandler} />
