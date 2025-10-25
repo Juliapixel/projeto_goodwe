@@ -4,10 +4,10 @@ _default:
     just --list
 
 build_api:
-    docker build -t goodwe_backend:latest --network=host -f backend.Dockerfile --platform linux/{{arch}} .
+    docker buildx build -t goodwe_backend:latest --network=host -f backend.Dockerfile --platform linux/{{ arch }} .
 
 build_tomada:
-    docker build -t goodwe_tomada:latest --network=host -f tomada.Dockerfile --platform linux/{{arch}} .
+    docker buildx build -t goodwe_tomada:latest --network=host -f tomada.Dockerfile --platform linux/{{ arch }} .
 
 build: build_api build_tomada
 
