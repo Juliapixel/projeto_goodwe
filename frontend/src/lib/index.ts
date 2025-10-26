@@ -30,3 +30,41 @@ export async function getEcon() {
     const data = await resp.json();
     return data.state == "on";
 }
+
+type Dado = [string, number];
+
+interface DadosResp {
+    bat: Dado[];
+    charge: Dado[];
+    load: Dado[];
+    pv: Dado[];
+    meter: Dado[];
+}
+
+export async function getDados() {
+    const resp = await fetch(`${API_BASE}/api/dados`);
+    if (!resp.ok) {
+        return;
+    }
+    const data: DadosResp = await resp.json();
+    return Array.from({ length: data.bat.length }).map((_, i) => {
+        const date = new Date(Date.parse(data.bat[i][0]));
+        return {
+            date: date.toLocaleTimeString(),
+            bat: data.bat[i][1],
+            charge: data.charge[i][1],
+            load: data.load[i][1],
+            pv: data.pv[i][1],
+            meter: data.meter[i][1],
+        };
+    });
+}
+
+export async function getEconomiaChart() {
+    const resp = await fetch(`${API_BASE}/api/graficos/econ_semana`);
+    if (!resp.ok) {
+        return;
+    }
+    const data: [string, number][] = await resp.json();
+    return data;
+}
