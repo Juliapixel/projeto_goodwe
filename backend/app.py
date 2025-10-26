@@ -116,6 +116,11 @@ async def dados():
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
 
+status_tomada = {
+    "economia": True,
+    "ligada": None,
+}
+
 @app.post("/api/tomada/set_economia")
 async def set_economia():
     state = request.args.get("state", "").lower()
