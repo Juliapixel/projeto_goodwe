@@ -1,12 +1,11 @@
+import { useEffect, useState } from "react";
 import Tomada, { type TomadaCompany, type TomadaState } from "./Tomada";
+import { getConsumo, getTomada } from "../lib";
 
-// TODO: pegar do backend
-const tomadas = Array.from({ length: 10 }, () => {
+const tomadas = Array.from({ length: 9 }, () => {
     return {
         id: crypto.randomUUID(),
-        state: (["on", "off", "unknown"] as TomadaState[])[
-            Math.round(Math.random() * 2)
-        ],
+        state: "unknown" as TomadaState,
         company: (["tuya", "goodwe"] as TomadaCompany[])[
             Math.round(Math.random())
         ],
@@ -14,28 +13,39 @@ const tomadas = Array.from({ length: 10 }, () => {
     };
 });
 
-// UUID da tomada de testes
-tomadas[0] = {
-    id: "338c1c8a-c3a2-4715-be92-8911248bbb8c",
-    company: "goodwe",
-    state: "off",
-    economy: false,
-};
-
 export default function Dispositivos() {
+    const [state, setState] = useState<TomadaState>("unknown");
+    const [load, setLoad] = useState<number | undefined>();
+    useEffect(() => {
+        getConsumo().then((c) => setLoad(c));
+        getTomada().then((c) => {
+            if (c === null) setState("unknown");
+            setState(c ? "on" : "off");
+        });
+    }, []);
     const t = tomadas.map((d, i) => (
         <Tomada
             state={d.state}
             economy={d.economy}
             id={d.id}
             key={d.id}
-            name={`Tomada ${i + 1}`}
+            name={`Tomada Futura ${i + 1}`}
             company={d.company}
         />
     ));
     return (
         <>
-            <div className="grid md:grid-cols-4 grid-cols-1 gap-4">{t}</div>
+            <div className="grid md:grid-cols-4 grid-cols-1 gap-4">
+                <Tomada
+                    state={state}
+                    load={load}
+                    company="goodwe"
+                    economy={false}
+                    id="338c1c8a-c3a2-4715-be92-8911248bbb8c"
+                    name="Tomada Protótipo"
+                />
+                {t}
+            </div>
         </>
     );
 }

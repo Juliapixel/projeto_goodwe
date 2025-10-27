@@ -13,8 +13,9 @@ export async function setTomada(on: boolean) {
 
 export async function getTomada() {
     const resp = await fetch(`${API_BASE}/api/tomada/get`);
-    const data = await resp.json();
-    return data.state != null;
+    const data: { state: "on" | "off" | null } = await resp.json();
+    if (data.state === null) return null;
+    return data.state === "on";
 }
 
 export async function setEcon(on: boolean) {
@@ -66,5 +67,14 @@ export async function getEconomiaChart() {
         return;
     }
     const data: [string, number][] = await resp.json();
+    return data;
+}
+
+export async function getConsumo() {
+    const resp = await fetch(`${API_BASE}/api/tuya`);
+    if (!resp.ok) {
+        return;
+    }
+    const data: number = (await resp.json()).power;
     return data;
 }
