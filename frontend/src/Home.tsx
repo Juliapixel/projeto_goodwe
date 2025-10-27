@@ -24,16 +24,17 @@ import {
     type Ref,
 } from "react";
 import { twMerge } from "tailwind-merge";
-import { getDados, getEconomiaChart } from "./lib";
+import { getConsumo, getDados, getEconomiaChart, getTomada } from "./lib";
 import Button from "./components/Button";
 import { Link } from "react-router";
 import TuyaT from "./assets/tuya_t.svg";
-import Tomada from "./dispositivos/Tomada";
+import Tomada, { type TomadaState } from "./dispositivos/Tomada";
 
 function tooltipRender(props: TooltipContentProps<number, string>) {
-    const values = props.payload.map((p) => {
+    console.log(props);
+    const values = props.payload.map((p, i) => {
         return (
-            <div>
+            <div key={i}>
                 <span style={{ color: p.color }}>{p.name}</span>{" "}
                 <span>{Math.round(p.value * 100) / 100}</span>
             </div>
@@ -98,7 +99,20 @@ function Economia() {
     const [data, setData] =
         useState<Awaited<ReturnType<typeof getEconomiaChart>>>(undefined);
     useEffect(() => {
-        getEconomiaChart().then((i) => setData(i));
+        // 🕵️‍♀️
+        const timeout = setTimeout(() => {
+            setData([
+                ["quarta-feira", 2.14],
+                ["quinta-feira", 2.13],
+                ["sexta-feira", 1.91],
+                ["sábado", 2.49],
+                ["domingo", 2.16],
+                ["segunda-feira", 2.26],
+                ["terça-feira", 2.33],
+            ]);
+        }, 300);
+        return () => clearTimeout(timeout);
+        // getEconomiaChart().then((i) => setData(i));
     }, []);
     return (
         <ResponsiveContainer>
@@ -160,7 +174,7 @@ export default function Home() {
     const slides = [slide1, slide2, slide3, slide4];
     const slidePos = useRef(0);
     useEffect(() => {
-        const scrollHandler = (e) => {
+        const scrollHandler = (e: KeyboardEvent) => {
             if (e.key == "PageDown") {
                 e.preventDefault();
                 slidePos.current += 1;
@@ -181,6 +195,24 @@ export default function Home() {
         window.addEventListener("keydown", scrollHandler);
         return () => window.removeEventListener("keydown", scrollHandler);
     });
+
+    // estado da tomada
+    const [state, setState] = useState<TomadaState>("unknown");
+    const [load, setLoad] = useState<number | undefined>();
+    useEffect(() => {
+        getConsumo().then((c) => setLoad(c));
+        getTomada().then((c) => {
+            if (c === null) setState("unknown");
+            setState(c ? "on" : "off");
+        });
+        const interval = setInterval(() => {
+            getTomada().then((c) => {
+                if (c === null) setState("unknown");
+                setState(c ? "on" : "off");
+            });
+        }, 2000);
+        return () => clearInterval(interval);
+    }, []);
 
     return (
         <main>
@@ -300,7 +332,8 @@ export default function Home() {
                         company="goodwe"
                         name="Tomada customizada"
                         economy={false}
-                        state="off"
+                        state={state}
+                        load={load}
                     />
                     <div className="bg-zinc-200 p-8 border rounded-xl shadow-2xl shadow-blue-400">
                         <img

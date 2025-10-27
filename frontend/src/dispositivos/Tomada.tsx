@@ -31,6 +31,7 @@ export interface TomadaProps extends HTMLAttributes<HTMLDivElement> {
     state: TomadaState;
     company: TomadaCompany;
     economy: boolean;
+    load?: number;
     dummy?: boolean;
     onTogglePower?(isOn: boolean): void;
     onChangeEcon?(isOn: boolean): void;
@@ -67,6 +68,7 @@ export default function Tomada({
     state,
     economy,
     company,
+    load,
     dummy,
     className,
     onChangeEcon,
@@ -74,11 +76,14 @@ export default function Tomada({
     ...restProps
 }: TomadaProps) {
     const [localState, setState] = useState(state);
-    // incrivel
-    useEffect(() => setState(state), [state]);
     const [isOn, setIsOn] = useState(
         state == "on" ? true : state == "off" ? false : undefined,
     );
+    // incrivel
+    useEffect(() => {
+        setState(state);
+        setIsOn(state == "on" ? true : state == "off" ? false : undefined);
+    }, [state]);
     const toggle: MouseEventHandler<HTMLButtonElement> = async (e) => {
         if (dummy) {
             setIsOn(!isOn);
@@ -134,6 +139,9 @@ export default function Tomada({
                 />
             </div>
             <div>
+                <p className="px-3 py-2 text-lg">
+                    Consumo: {load?.toString() ?? "0.0"}W
+                </p>
                 <div className="grid grid-cols-2 gap-2">
                     <StatusBadge state={localState} />
                     <Button onClick={toggle} disabled={isOn === undefined}>
