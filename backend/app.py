@@ -40,16 +40,14 @@ async def tuya_status():
 
 @app.post('/api/tuya_control')
 async def tuya_control():
+    state = request.args.get("state", "").lower()
+    if state not in ["on", "off"]:
+        return jsonify({"erro": f"\"{state}\" não é um estado válido"}), 400
+    setstate = state == "on"
     try:
         device_id = client_tuya.TUYA_DEVICE_ID
-
-        status = client_tuya.get_status(device_id)
-        if status:
-            client_tuya.control_switch(device_id, False)
-            return jsonify({"status": False})
-        else:
-            client_tuya.control_switch(device_id, True)
-            return jsonify({"status": True})
+        client_tuya.control_switch(device_id, setstate)
+        return jsonify({"status": True})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
