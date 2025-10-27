@@ -4,10 +4,10 @@ from tuya_connector import TuyaOpenAPI
 
 load_dotenv()
 
-TUYA_CLIENT_ID = "eqcskt5np78gxnyrcrmu"
-TUYA_CLIENT_SECRET = "b261a73b1d7941288b73f0ef3ab22422"
-TUYA_REGION = "us"
-TUYA_DEVICE_ID = "eb9efd0da2bd405863ks0k"
+TUYA_CLIENT_ID = os.getenv("TUYA_CLIENT_ID")
+TUYA_CLIENT_SECRET = os.getenv("TUYA_CLIENT_SECRET")
+TUYA_REGION = os.getenv("TUYA_REGION", "us")
+TUYA_DEVICE_ID = os.getenv("TUYA_DEVICE_ID")
 
 api = TuyaOpenAPI(f"https://openapi.tuya{TUYA_REGION}.com", TUYA_CLIENT_ID, TUYA_CLIENT_SECRET)
 api.connect()
@@ -106,4 +106,3 @@ if __name__ == "__main__":
 
         power = get_device_current_power(TUYA_DEVICE_ID)
         print(f"Potência atual do dispositivo {TUYA_DEVICE_ID}: {power} W")
-
