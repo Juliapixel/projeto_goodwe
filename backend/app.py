@@ -11,7 +11,7 @@ from quart import Quart, jsonify, redirect, request
 from tomada import get_tomada, set_tomada
 from client import GoodweClient
 
-from client_tuya import get_device_current_power
+import client_tuya
 
 app = Quart(__name__)
 dotenv.load_dotenv()
@@ -19,10 +19,21 @@ dotenv.load_dotenv()
 @app.get('/api/tuya')
 async def dados_tuya():
     try:
-        device_id = os.getenv("TUYA_DEVICE_ID")        
-        
-        power = get_device_current_power(device_id)
+        device_id = client_tuya.TUYA_DEVICE_ID
+
+        power = client_tuya.get_device_current_power(device_id)
         return jsonify({"power": power})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"erro": str(e)}), 500
+
+@app.get('/api/tuya_status')
+async def tuya_status():
+    try:
+        device_id = client_tuya.TUYA_DEVICE_ID
+
+        status = client_tuya.get_status(device_id)
+        return jsonify({"status": status})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
