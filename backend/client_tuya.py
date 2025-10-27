@@ -36,8 +36,7 @@ def get_device_current_power(device_id: str, force_refresh: bool = True) -> floa
         for item in result["result"]:
             if item["code"] in ["cur_power", "current_power", "power"]:
                 val = float(item["value"])
-                if val > 10000:
-                    val /= 10
+                val /= 10
                 return val
         
         raise KeyError("Campo de potência não encontrado.")
