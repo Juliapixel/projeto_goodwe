@@ -37,6 +37,22 @@ async def tuya_status():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
+    
+@app.post('/api/tuya_control')
+async def tuya_control():
+    try:
+        device_id = client_tuya.TUYA_DEVICE_ID
+
+        status = client_tuya.get_status(device_id)
+        if status:
+            client_tuya.control_switch(device_id, False)
+            return jsonify({"status": False})
+        else:
+            client_tuya.control_switch(device_id, True)
+            return jsonify({"status": True})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"erro": str(e)}), 500
 
 @app.get('/api/assistente')
 async def dados_assistente():
