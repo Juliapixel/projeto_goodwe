@@ -37,7 +37,7 @@ async def tuya_status():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
-    
+
 @app.post('/api/tuya_control')
 async def tuya_control():
     try:
@@ -62,17 +62,17 @@ async def dados_assistente():
         eday, emonth = await client.eday_emonth()
         bat = await client.cur_bat()
 
-        dia, semana = await client.report_economia_consumo(0, 6)
+        dia, = await client.report_economia_consumo(0)
         cons_dia, econ_dia = dia
-        cons_semana, econ_semana = semana
+        # cons_semana, econ_semana = semana
 
         await client.close()
 
         return jsonify({
             "consumo_diario_kwh": cons_dia,
-            "consumo_semanal_kwh": cons_semana,
+            # "consumo_semanal_kwh": cons_semana,
             "economia_diaria_kwh": econ_dia,
-            "economia_semanal_kwh": econ_semana,
+            # "economia_semanal_kwh": econ_semana,
             "prod_diaria_kwh": eday,
             "prod_mensal_kwh": emonth,
             "bateria": bat,
