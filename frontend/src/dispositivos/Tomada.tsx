@@ -2,8 +2,14 @@ import Badge from "../components/Badge";
 import GoodweW from "../assets/GoodWe_W.svg";
 import TuyaT from "../assets/tuya_t.svg";
 import Button from "../components/Button";
-import { useEffect, useState, type MouseEventHandler } from "react";
+import {
+    useEffect,
+    useState,
+    type HTMLAttributes,
+    type MouseEventHandler,
+} from "react";
 import { setTomada } from "../lib";
+import { twMerge } from "tailwind-merge";
 
 export type TomadaState = "on" | "off" | "unknown";
 export type TomadaCompany = "goodwe" | "tuya";
@@ -19,14 +25,14 @@ const stateStr: Record<TomadaState, string> = {
     unknown: "Offline",
 };
 
-export interface TomadaProps {
+export interface TomadaProps extends HTMLAttributes<HTMLDivElement> {
     id: string;
     name: string;
     state: TomadaState;
     company: TomadaCompany;
     economy: boolean;
     dummy?: boolean;
-    onToggle?(isOn: boolean): void;
+    onTogglePower?(isOn: boolean): void;
     onChangeEcon?(isOn: boolean): void;
 }
 
@@ -62,8 +68,10 @@ export default function Tomada({
     economy,
     company,
     dummy,
+    className,
     onChangeEcon,
-    onToggle,
+    onTogglePower,
+    ...restProps
 }: TomadaProps) {
     const [localState, setState] = useState(state);
     // incrivel
@@ -75,7 +83,7 @@ export default function Tomada({
         if (dummy) {
             setIsOn(!isOn);
             setState(isOn ? "off" : "on");
-            onToggle?.(!isOn);
+            onTogglePower?.(!isOn);
             return;
         }
         const target = e.currentTarget;
@@ -85,7 +93,7 @@ export default function Tomada({
             if (success) {
                 setIsOn(!isOn);
                 setState(isOn ? "off" : "on");
-                onToggle?.(!isOn);
+                onTogglePower?.(!isOn);
             } else {
                 setIsOn(undefined);
                 setState("unknown");
@@ -99,7 +107,13 @@ export default function Tomada({
         }
     };
     return (
-        <div className="flex flex-col gap-3 p-4 border rounded-2xl from-shis-950 to-shis-900 bg-gradient-to-t border-shis-700">
+        <div
+            className={twMerge(
+                "flex flex-col gap-3 p-4 border rounded-2xl from-shis-950 to-shis-900 bg-gradient-to-t border-shis-700",
+                className,
+            )}
+            {...restProps}
+        >
             <div className="flex flex-row pl-2">
                 <h2
                     className="inline w-full overflow-hidden text-ellipsis whitespace-nowrap text-xl font-semibold"

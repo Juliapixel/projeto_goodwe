@@ -15,10 +15,6 @@ const router = createBrowserRouter([
         Component: Layout,
         children: [
             {
-                path: "/",
-                Component: Home,
-            },
-            {
                 path: "/dispositivos",
                 Component: Dispositivos,
             },
@@ -39,6 +35,10 @@ const router = createBrowserRouter([
                 Component: Fallback,
             },
         ],
+    },
+    {
+        path: "/",
+        Component: Home,
     },
 ]);
 

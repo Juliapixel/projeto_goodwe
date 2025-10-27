@@ -4,7 +4,7 @@ import GoodweW from "../assets/GoodWe_W.svg";
 
 export default function Header() {
     return (
-        <header className="fixed from-50% from-shis-950 to-transparent bg-gradient-to-b top-0 left-0 z-10 md:p-8 w-screen">
+        <header className="fixed from-20% from-shis-950 to-transparent bg-gradient-to-b top-0 left-0 z-10 md:p-8 w-screen">
             <div className="flex shadow-md justify-between px-4 md:px-8 w-full h-18 md:h-20 md:rounded-3xl bg-zinc-200 border border-white ">
                 <Link to="/" className="contents">
                     <img
