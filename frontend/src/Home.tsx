@@ -202,7 +202,10 @@ export default function Home() {
     useEffect(() => {
         getConsumo().then((c) => setLoad(c));
         getTomada().then((c) => {
-            if (c === null) setState("unknown");
+            if (c === null) {
+                setState("unknown")
+                return;
+            };
             setState(c ? "on" : "off");
         });
         const interval = setInterval(() => {
@@ -279,7 +282,7 @@ export default function Home() {
                     </Link>
                 </div>
                 <div className="p-12 bg-shis-900 rounded-2xl border border-shis-700">
-                    <h2 className="text-xl font-medium">Dados reais:</h2>
+                    <h2 className="text-xl font-medium">Dados da GoodWe&reg;:</h2>
                     <div className="h-full">
                         <div className="h-1/2">
                             <Economia />

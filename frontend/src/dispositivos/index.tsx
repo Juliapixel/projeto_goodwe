@@ -19,7 +19,10 @@ export default function Dispositivos() {
     useEffect(() => {
         getConsumo().then((c) => setLoad(c));
         getTomada().then((c) => {
-            if (c === null) setState("unknown");
+            if (c === null) {
+                setState("unknown")
+                return
+            };
             setState(c ? "on" : "off");
         });
     }, []);
